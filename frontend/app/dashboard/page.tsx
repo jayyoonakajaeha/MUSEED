@@ -1,3 +1,5 @@
+"use client"
+
 import { HeroSection } from "@/components/hero-section"
 import { PlaylistCard } from "@/components/playlist-card"
 import { TrendingUp, Activity } from "lucide-react"

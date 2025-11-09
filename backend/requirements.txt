@@ -5,5 +5,7 @@ pydantic
 python-jose[cryptography]
 passlib
 python-multipart
-databases[sqlite]
+psycopg2-binary
+fastapi-cors
+python-dotenv
 argon2-cffi

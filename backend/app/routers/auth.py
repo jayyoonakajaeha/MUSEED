@@ -3,7 +3,10 @@ from sqlalchemy.orm import Session
 
 from .. import crud, schemas, database
 
-router = APIRouter()
+router = APIRouter(
+    prefix="/api/auth",
+    tags=["auth"]
+)
 
 # Dependency to get the DB session
 def get_db():
