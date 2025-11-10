@@ -118,3 +118,43 @@ export async function updateUserProfile(username: string, token: string, updateD
       return { success: false, error: error.message };
     }
   }
+
+export async function recordListen(trackData: { track_id: string; genre: string }, token: string) {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/history/listen`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+            },
+            body: JSON.stringify(trackData),
+        });
+
+        if (!response.ok) {
+            const data = await response.json();
+            throw new Error(data.detail || 'Failed to record listening event');
+        }
+
+        // We don't necessarily need to return data if it's just a confirmation
+        return { success: true };
+    } catch (error: any) {
+        console.error("Failed to record listening event:", error);
+        return { success: false, error: error.message };
+    }
+}
+
+export async function getUserStats(username: string) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/users/${username}/stats`);
+  
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.detail || 'Failed to fetch user stats');
+      }
+  
+      return { success: true, data: await response.json() };
+    } catch (error: any) {
+      console.error("Failed to fetch user stats:", error);
+      return { success: false, error: error.message };
+    }
+  }

@@ -4,11 +4,15 @@ import type React from "react"
 
 import { useState, useRef, useEffect } from "react"
 import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX } from "lucide-react"
+import { useAuth } from "@/context/AuthContext"
+import { recordListen } from "@/lib/api"
 
 interface AudioPlayerProps {
   currentTrack: {
+    track_id: string;
     title: string
     artist: string
+    genre: string;
     duration: number
   }
   onNext: () => void
@@ -16,6 +20,7 @@ interface AudioPlayerProps {
 }
 
 export function AudioPlayer({ currentTrack, onNext, onPrevious }: AudioPlayerProps) {
+  const { token } = useAuth();
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
   const [volume, setVolume] = useState(0.7)
@@ -24,6 +29,7 @@ export function AudioPlayer({ currentTrack, onNext, onPrevious }: AudioPlayerPro
 
   const duration = currentTrack.duration
 
+  // Effect for simulating playback progress
   useEffect(() => {
     let interval: NodeJS.Timeout
     if (isPlaying) {
@@ -40,6 +46,21 @@ export function AudioPlayer({ currentTrack, onNext, onPrevious }: AudioPlayerPro
     }
     return () => clearInterval(interval)
   }, [isPlaying, duration, onNext])
+
+  // Effect for recording listening history
+  useEffect(() => {
+    // Record a listen event when a track starts playing
+    if (isPlaying && token && currentTrack.track_id && currentTrack.genre) {
+      console.log(`Recording listen for track: ${currentTrack.track_id}, genre: ${currentTrack.genre}`);
+      // This is a "fire-and-forget" call. We don't need to wait for the response
+      // or handle errors here as it's not critical to the user's immediate experience.
+      recordListen(
+        { track_id: currentTrack.track_id, genre: currentTrack.genre },
+        token
+      );
+    }
+  }, [isPlaying, token, currentTrack]);
+
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60)

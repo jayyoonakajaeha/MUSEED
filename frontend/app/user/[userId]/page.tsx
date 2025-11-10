@@ -3,13 +3,13 @@
 import { useState, useEffect } from "react"
 import { useParams } from "next/navigation"
 import Link from "next/link"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { PlaylistCard } from "@/components/playlist-card"
 import { UserPlus, UserMinus, Music, Heart, Users, Loader2, Edit } from "lucide-react"
 import { useAuth } from "@/context/AuthContext"
-import { getUserProfile } from "@/lib/api"
+import { getUserProfile, getUserStats } from "@/lib/api"
 
 // Define a type for the user profile data for better type safety
 type UserProfile = {
@@ -26,47 +26,56 @@ type UserProfile = {
   playlists: any[];
 };
 
+// Helper to format genre names into image file names
+const getGenreImageName = (genre: string | null | undefined): string => {
+    if (!genre) return "Default.png";
+    // Replace spaces and slashes with underscores
+    return `${genre.replace(/[\s/]/g, '_')}.png`;
+}
+
 export default function UserProfilePage() {
   const params = useParams()
   const userId = params.userId as string;
   const { user: currentUser, token } = useAuth()
 
   const [profileData, setProfileData] = useState<UserProfile | null>(null)
+  const [topGenre, setTopGenre] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [isFollowing, setIsFollowing] = useState(false)
 
   useEffect(() => {
-    // Ensure we don't fetch until the token is loaded
-    if (token === undefined) {
-        return;
-    }
-
-    if (!token) {
-        // Handle case where user is not logged in
-        setLoading(false)
-        setError("You must be logged in to view profiles.")
-        return;
-    }
-    
     if (userId) {
-      const fetchProfile = async () => {
+      const fetchProfileData = async () => {
         setLoading(true)
         setError(null)
-        const result = await getUserProfile(userId, token)
-        if (result.success) {
+
+        // Fetch profile and stats in parallel
+        const [profileResult, statsResult] = await Promise.all([
+            // We need a token to get user email, etc. for the main profile
+            token ? getUserProfile(userId, token) : Promise.resolve({ success: false, error: "Not logged in" }),
+            getUserStats(userId)
+        ]);
+
+        if (profileResult.success) {
           // Mocking stats and playlists for now as the API doesn't provide them yet
           setProfileData({
-            ...result.data,
+            ...profileResult.data,
             stats: { playlists: 0, followers: 0, following: 0 },
             playlists: [],
           })
         } else {
-          setError(result.error || "Failed to load profile.")
+          setError(profileResult.error || "Failed to load profile.")
         }
+
+        if (statsResult.success) {
+            setTopGenre(statsResult.data.top_genre);
+        }
+        // Not setting a top-level error for stats failing, as it's non-critical
+
         setLoading(false)
       }
-      fetchProfile()
+      fetchProfileData()
     }
   }, [userId, token])
 
@@ -99,6 +108,7 @@ export default function UserProfilePage() {
   }
 
   const isOwnProfile = currentUser?.sub === profileData.username;
+  const profileImage = `/profiles/${getGenreImageName(topGenre)}`;
 
   return (
     <main className="min-h-screen py-24">
@@ -107,6 +117,7 @@ export default function UserProfilePage() {
         <div className="space-y-8">
           <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
             <Avatar className="h-32 w-32 border-4 border-primary/20">
+              <AvatarImage src={profileImage} alt={profileData.username} className="object-contain" />
               <AvatarFallback className="text-4xl bg-primary/10 text-primary">
                 {profileData.username.substring(0, 2).toUpperCase()}
               </AvatarFallback>

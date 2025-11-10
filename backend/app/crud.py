@@ -1,4 +1,5 @@
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from . import models, schemas, security
 
 # --- User CRUD ---
@@ -40,6 +41,28 @@ def update_user(db: Session, db_user: models.User, user_in: schemas.UserUpdate):
     db.commit()
     db.refresh(db_user)
     return db_user
+
+# --- Listening History CRUD ---
+
+def create_listening_history(db: Session, history: schemas.ListeningHistoryCreate, user_id: int):
+    db_history = models.ListeningHistory(**history.model_dump(), user_id=user_id)
+    db.add(db_history)
+    db.commit()
+    db.refresh(db_history)
+    return db_history
+
+def get_top_genre_for_user(db: Session, user_id: int):
+    top_genre_query = (
+        db.query(
+            models.ListeningHistory.genre,
+            func.count(models.ListeningHistory.id).label("listen_count"),
+        )
+        .filter(models.ListeningHistory.user_id == user_id)
+        .group_by(models.ListeningHistory.genre)
+        .order_by(func.count(models.ListeningHistory.id).desc())
+        .first()
+    )
+    return top_genre_query
 
 # --- Auth ---
 

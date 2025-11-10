@@ -17,7 +17,7 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 
 interface Track {
-  id: string
+  track_id: string
   title: string
   artist: string
   duration: number
@@ -26,14 +26,14 @@ interface Track {
 
 // Mock generated playlist
 const mockPlaylist: Track[] = [
-  { id: "1", title: "Midnight City", artist: "M83", duration: 244, genre: "Electronic" },
-  { id: "2", title: "Strobe", artist: "deadmau5", duration: 637, genre: "Electronic" },
-  { id: "3", title: "Intro", artist: "The xx", duration: 131, genre: "Indie" },
-  { id: "4", title: "Teardrop", artist: "Massive Attack", duration: 329, genre: "Trip-Hop" },
-  { id: "5", title: "Electric Feel", artist: "MGMT", duration: 229, genre: "Indie" },
-  { id: "6", title: "Breathe", artist: "Pink Floyd", duration: 163, genre: "Rock" },
-  { id: "7", title: "Holocene", artist: "Bon Iver", duration: 339, genre: "Indie" },
-  { id: "8", title: "Nude", artist: "Radiohead", duration: 254, genre: "Alternative" },
+  { track_id: "1", title: "Midnight City", artist: "M83", duration: 244, genre: "Electronic" },
+  { track_id: "2", title: "Strobe", artist: "deadmau5", duration: 637, genre: "Electronic" },
+  { track_id: "3", title: "Intro", artist: "The xx", duration: 131, genre: "Indie" },
+  { track_id: "4", title: "Teardrop", artist: "Massive Attack", duration: 329, genre: "Trip-Hop" },
+  { track_id: "5", title: "Electric Feel", artist: "MGMT", duration: 229, genre: "Indie" },
+  { track_id: "6", title: "Breathe", artist: "Pink Floyd", duration: 163, genre: "Rock" },
+  { track_id: "7", title: "Holocene", artist: "Bon Iver", duration: 339, genre: "Indie" },
+  { track_id: "8", title: "Nude", artist: "Radiohead", duration: 254, genre: "Alternative" },
 ]
 
 export default function PlaylistPage() {
@@ -195,7 +195,11 @@ export default function PlaylistPage() {
         </div>
 
         {/* Audio Player */}
-        <AudioPlayer currentTrack={currentTrack} onNext={handleNext} onPrevious={handlePrevious} />
+        <AudioPlayer
+          currentTrack={currentTrack}
+          onNext={handleNext}
+          onPrevious={handlePrevious}
+        />
 
         {/* Track List */}
         <div className="bg-surface border border-border rounded-xl overflow-hidden">
@@ -205,7 +209,7 @@ export default function PlaylistPage() {
           <div className="divide-y divide-border">
             {mockPlaylist.map((track, index) => (
               <div
-                key={track.id}
+                key={track.track_id}
                 className={cn(
                   "flex items-center gap-4 p-4 hover:bg-surface-elevated transition-colors group",
                   currentTrackIndex === index && "bg-surface-elevated",
@@ -248,7 +252,7 @@ export default function PlaylistPage() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => handleCreateFromTrack(track.id)}
+                  onClick={() => handleCreateFromTrack(track.track_id)}
                   className="opacity-0 group-hover:opacity-100 transition-opacity"
                 >
                   <Plus className="h-4 w-4 mr-1" />
