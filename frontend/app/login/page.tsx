@@ -10,10 +10,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Music } from "lucide-react"
+import { useAuth } from "@/context/AuthContext"
+import { loginUser } from "@/lib/api"
 
 export default function LoginPage() {
   const router = useRouter()
-  const [email, setEmail] = useState("")
+  const { login } = useAuth()
+  const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
@@ -23,15 +26,14 @@ export default function LoginPage() {
     setError("")
     setLoading(true)
 
-    // Mock authentication - replace with real auth later
-    if (email && password) {
-      // Simulate API call
-      setTimeout(() => {
-        router.push("/dashboard")
-      }, 500)
+    const result = await loginUser(username, password)
+    setLoading(false)
+
+    if (result.success) {
+      login(result.data.access_token)
+      router.push("/dashboard")
     } else {
-      setError("Please enter both email and password")
-      setLoading(false)
+      setError(result.error || "Failed to sign in.")
     }
   }
 
@@ -52,13 +54,13 @@ export default function LoginPage() {
         <CardContent>
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="username">Username</Label>
               <Input
-                id="email"
-                type="email"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                id="username"
+                type="text"
+                placeholder="your_username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
                 required
               />
             </div>

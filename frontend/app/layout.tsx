@@ -1,7 +1,10 @@
+"use client"
+
 import type React from "react"
 import { Geist, Geist_Mono } from "next/font/google"
 import "./globals.css"
 import { Navigation } from "@/components/navigation"
+import { AuthProvider } from "@/context/AuthContext"
 
 const geistSans = Geist({
   subsets: ["latin"],
@@ -13,12 +16,6 @@ const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
 })
 
-export const metadata = {
-  title: "MUSEED - AI-Powered Music Discovery",
-  description: "Discover new music through AI-generated playlists based on your favorite tracks",
-    generator: 'v0.app'
-}
-
 export default function RootLayout({
   children,
 }: {
@@ -27,8 +24,10 @@ export default function RootLayout({
   return (
     <html lang="en" className={`dark ${geistSans.variable} ${geistMono.variable}`}>
       <body className="min-h-screen">
-        <Navigation />
-        {children}
+        <AuthProvider>
+          <Navigation />
+          {children}
+        </AuthProvider>
       </body>
     </html>
   )

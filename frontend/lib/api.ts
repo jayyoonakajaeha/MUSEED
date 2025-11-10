@@ -46,3 +46,75 @@ export async function registerUser(userData: any) {
     return { success: false, error: error.message };
   }
 }
+
+export async function loginUser(username: string, password: string) {
+  try {
+    const formData = new URLSearchParams();
+    formData.append('username', username);
+    formData.append('password', password);
+
+    const response = await fetch(`${API_BASE_URL}/api/auth/token`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: formData.toString(),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.detail || 'Failed to login');
+    }
+
+    return { success: true, data };
+  } catch (error: any) {
+    console.error("Failed to login user:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+export async function getUserProfile(username: string, token: string) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/users/${username}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.detail || 'Failed to fetch user profile');
+    }
+
+    return { success: true, data };
+  } catch (error: any) {
+    console.error("Failed to fetch user profile:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+export async function updateUserProfile(username: string, token: string, updateData: any) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/users/${username}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify(updateData),
+      });
+  
+      const data = await response.json();
+  
+      if (!response.ok) {
+        throw new Error(data.detail || 'Failed to update user profile');
+      }
+  
+      return { success: true, data };
+    } catch (error: any) {
+      console.error("Failed to update user profile:", error);
+      return { success: false, error: error.message };
+    }
+  }

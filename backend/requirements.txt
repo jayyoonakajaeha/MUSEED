@@ -1,7 +1,7 @@
 fastapi
 uvicorn[standard]
 sqlalchemy
-pydantic
+pydantic[email]
 python-jose[cryptography]
 passlib
 python-multipart
@@ -9,3 +9,5 @@ psycopg2-binary
 fastapi-cors
 python-dotenv
 argon2-cffi
+pydantic-settings
+email-validator
