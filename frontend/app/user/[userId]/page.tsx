@@ -11,19 +11,20 @@ import { UserPlus, UserMinus, Music, Heart, Users, Loader2, Edit } from "lucide-
 import { useAuth } from "@/context/AuthContext"
 import { getUserProfile, getUserStats } from "@/lib/api"
 
-// Define a type for the user profile data for better type safety
+// More accurate types to match backend
+interface Playlist {
+  id: number;
+  name: string;
+  owner_id: number;
+  is_public: boolean;
+  // Add other relevant playlist fields if needed
+}
+
 type UserProfile = {
   id: number;
   username: string;
   email: string;
-  // Add other fields as they become available from the API
-  // For now, we'll mock the stats and playlists for display purposes
-  stats: {
-    playlists: number;
-    followers: number;
-    following: number;
-  };
-  playlists: any[];
+  playlists: Playlist[];
 };
 
 // Helper to format genre names into image file names
@@ -50,20 +51,14 @@ export default function UserProfilePage() {
         setLoading(true)
         setError(null)
 
-        // Fetch profile and stats in parallel
         const [profileResult, statsResult] = await Promise.all([
-            // We need a token to get user email, etc. for the main profile
             token ? getUserProfile(userId, token) : Promise.resolve({ success: false, error: "Not logged in" }),
             getUserStats(userId)
         ]);
 
         if (profileResult.success) {
-          // Mocking stats and playlists for now as the API doesn't provide them yet
-          setProfileData({
-            ...profileResult.data,
-            stats: { playlists: 0, followers: 0, following: 0 },
-            playlists: [],
-          })
+          // Use real playlist data from the API
+          setProfileData(profileResult.data)
         } else {
           setError(profileResult.error || "Failed to load profile.")
         }
@@ -71,7 +66,6 @@ export default function UserProfilePage() {
         if (statsResult.success) {
             setTopGenre(statsResult.data.top_genre);
         }
-        // Not setting a top-level error for stats failing, as it's non-critical
 
         setLoading(false)
       }
@@ -109,6 +103,13 @@ export default function UserProfilePage() {
 
   const isOwnProfile = currentUser?.sub === profileData.username;
   const profileImage = `/profiles/${getGenreImageName(topGenre)}`;
+  
+  // Mocked stats until backend provides them
+  const stats = {
+    playlists: profileData.playlists.length,
+    followers: 0,
+    following: 0,
+  };
 
   return (
     <main className="min-h-screen py-24">
@@ -132,17 +133,17 @@ export default function UserProfilePage() {
               <div className="flex flex-wrap gap-6">
                 <div className="flex items-center gap-2">
                   <Music className="h-5 w-5 text-primary" />
-                  <span className="font-semibold">{profileData.stats.playlists}</span>
+                  <span className="font-semibold">{stats.playlists}</span>
                   <span className="text-muted-foreground">Playlists</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Users className="h-5 w-5 text-primary" />
-                  <span className="font-semibold">{profileData.stats.followers}</span>
+                  <span className="font-semibold">{stats.followers}</span>
                   <span className="text-muted-foreground">Followers</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Heart className="h-5 w-5 text-primary" />
-                  <span className="font-semibold">{profileData.stats.following}</span>
+                  <span className="font-semibold">{stats.following}</span>
                   <span className="text-muted-foreground">Following</span>
                 </div>
               </div>
@@ -182,7 +183,7 @@ export default function UserProfilePage() {
             {profileData.playlists.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 {profileData.playlists.map((playlist) => (
-                  <PlaylistCard key={playlist.id} {...playlist} />
+                  playlist ? <PlaylistCard key={playlist.id} playlist={playlist} /> : null
                 ))}
               </div>
             ) : (

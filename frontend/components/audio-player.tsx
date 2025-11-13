@@ -1,20 +1,21 @@
 "use client"
 
-import type React from "react"
-
 import { useState, useRef, useEffect } from "react"
 import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX } from "lucide-react"
 import { useAuth } from "@/context/AuthContext"
 import { recordListen } from "@/lib/api"
 
+interface Track {
+  track_id: number;
+  title: string;
+  artist_name: string;
+  genre_toplevel: string | null;
+  audio_url?: string;
+  duration: number;
+}
+
 interface AudioPlayerProps {
-  currentTrack: {
-    track_id: string;
-    title: string
-    artist: string
-    genre: string;
-    duration: number
-  }
+  currentTrack: Track;
   onNext: () => void
   onPrevious: () => void
 }
@@ -23,44 +24,58 @@ export function AudioPlayer({ currentTrack, onNext, onPrevious }: AudioPlayerPro
   const { token } = useAuth();
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
+  const [duration, setDuration] = useState(0)
   const [volume, setVolume] = useState(0.7)
   const [isMuted, setIsMuted] = useState(false)
+  
+  const audioRef = useRef<HTMLAudioElement>(null);
   const progressRef = useRef<HTMLDivElement>(null)
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
-  const duration = currentTrack.duration
-
-  // Effect for simulating playback progress
+  // Effect to control audio playback (play/pause)
   useEffect(() => {
-    let interval: NodeJS.Timeout
-    if (isPlaying) {
-      interval = setInterval(() => {
-        setCurrentTime((prev) => {
-          if (prev >= duration) {
-            setIsPlaying(false)
-            onNext()
-            return 0
-          }
-          return prev + 1
-        })
-      }, 1000)
+    if (audioRef.current) {
+      if (isPlaying) {
+        audioRef.current.play().catch(error => console.error("Audio play failed:", error));
+      } else {
+        audioRef.current.pause();
+      }
     }
-    return () => clearInterval(interval)
-  }, [isPlaying, duration, onNext])
+  }, [isPlaying]);
 
+  // Effect to handle track changes
+  useEffect(() => {
+    if (audioRef.current && currentTrack?.audio_url) {
+      const wasPlaying = isPlaying;
+      setIsPlaying(false); // Stop playback while loading new track
+      audioRef.current.src = `${API_URL}${currentTrack.audio_url}`;
+      audioRef.current.load(); // Preload metadata
+      if (wasPlaying) {
+        audioRef.current.play().catch(error => console.error("Audio play failed:", error));
+        setIsPlaying(true);
+      }
+    }
+    // We only want this to run when the track itself changes, not when isPlaying changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentTrack, API_URL]);
+
+  // Effect to handle volume changes
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.volume = isMuted ? 0 : volume;
+    }
+  }, [volume, isMuted]);
+  
   // Effect for recording listening history
   useEffect(() => {
-    // Record a listen event when a track starts playing
-    if (isPlaying && token && currentTrack.track_id && currentTrack.genre) {
-      console.log(`Recording listen for track: ${currentTrack.track_id}, genre: ${currentTrack.genre}`);
-      // This is a "fire-and-forget" call. We don't need to wait for the response
-      // or handle errors here as it's not critical to the user's immediate experience.
+    if (isPlaying && currentTime > 1 && currentTime < 2 && token && currentTrack.track_id && currentTrack.genre_toplevel) {
+      console.log(`Recording listen for track: ${currentTrack.track_id}, genre: ${currentTrack.genre_toplevel}`);
       recordListen(
-        { track_id: currentTrack.track_id, genre: currentTrack.genre },
+        { track_id: currentTrack.track_id.toString(), genre: currentTrack.genre_toplevel },
         token
       );
     }
-  }, [isPlaying, token, currentTrack]);
-
+  }, [currentTime, isPlaying, token, currentTrack]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60)
@@ -69,11 +84,23 @@ export function AudioPlayer({ currentTrack, onNext, onPrevious }: AudioPlayerPro
   }
 
   const handleProgressClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!progressRef.current) return
+    if (!progressRef.current || !audioRef.current) return
     const rect = progressRef.current.getBoundingClientRect()
     const x = e.clientX - rect.left
     const percentage = x / rect.width
-    setCurrentTime(percentage * duration)
+    audioRef.current.currentTime = percentage * duration
+  }
+
+  const onTimeUpdate = () => {
+    if (audioRef.current) {
+      setCurrentTime(audioRef.current.currentTime);
+    }
+  }
+
+  const onLoadedMetadata = () => {
+    if (audioRef.current) {
+      setDuration(audioRef.current.duration);
+    }
   }
 
   const toggleMute = () => {
@@ -82,10 +109,16 @@ export function AudioPlayer({ currentTrack, onNext, onPrevious }: AudioPlayerPro
 
   return (
     <div className="bg-surface-elevated border border-border rounded-xl p-6 space-y-6">
+      <audio 
+        ref={audioRef} 
+        onEnded={onNext} 
+        onTimeUpdate={onTimeUpdate}
+        onLoadedMetadata={onLoadedMetadata}
+      />
       {/* Track Info */}
       <div className="text-center space-y-2">
         <h3 className="text-2xl font-bold text-balance">{currentTrack.title}</h3>
-        <p className="text-muted-foreground">{currentTrack.artist}</p>
+        <p className="text-muted-foreground">{currentTrack.artist_name}</p>
       </div>
 
       {/* Progress Bar */}
@@ -97,11 +130,11 @@ export function AudioPlayer({ currentTrack, onNext, onPrevious }: AudioPlayerPro
         >
           <div
             className="absolute inset-y-0 left-0 bg-primary rounded-full transition-all"
-            style={{ width: `${(currentTime / duration) * 100}%` }}
+            style={{ width: duration > 0 ? `${(currentTime / duration) * 100}%` : '0%' }}
           />
           <div
             className="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-primary rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-            style={{ left: `calc(${(currentTime / duration) * 100}% - 8px)` }}
+            style={{ left: duration > 0 ? `calc(${(currentTime / duration) * 100}% - 8px)` : '0%' }}
           />
         </div>
         <div className="flex justify-between text-sm text-muted-foreground">

@@ -1,6 +1,9 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useAuth } from "@/context/AuthContext"
+import { getPlaylist } from "@/lib/api"
+import { useParams, useRouter } from "next/navigation"
 import { AudioPlayer } from "@/components/audio-player"
 import { Heart, Share2, Save, Music2, Edit2, Check, Trash2, Lock, Globe, Plus } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -13,47 +16,101 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { MoreVertical } from "lucide-react"
-import { useRouter } from "next/navigation"
 import Link from "next/link"
 
+// Updated interfaces to match backend schema
 interface Track {
-  track_id: string
-  title: string
-  artist: string
-  duration: number
-  genre: string
+  track_id: number;
+  title: string;
+  artist_name: string;
+  genre_toplevel: string | null;
+  audio_url?: string;
+  album_art_url?: string | null;
+  duration: number;
 }
 
-// Mock generated playlist
-const mockPlaylist: Track[] = [
-  { track_id: "1", title: "Midnight City", artist: "M83", duration: 244, genre: "Electronic" },
-  { track_id: "2", title: "Strobe", artist: "deadmau5", duration: 637, genre: "Electronic" },
-  { track_id: "3", title: "Intro", artist: "The xx", duration: 131, genre: "Indie" },
-  { track_id: "4", title: "Teardrop", artist: "Massive Attack", duration: 329, genre: "Trip-Hop" },
-  { track_id: "5", title: "Electric Feel", artist: "MGMT", duration: 229, genre: "Indie" },
-  { track_id: "6", title: "Breathe", artist: "Pink Floyd", duration: 163, genre: "Rock" },
-  { track_id: "7", title: "Holocene", artist: "Bon Iver", duration: 339, genre: "Indie" },
-  { track_id: "8", title: "Nude", artist: "Radiohead", duration: 254, genre: "Alternative" },
-]
+interface PlaylistOwner {
+  id: number;
+  username: string;
+}
+
+interface Playlist {
+  id: number;
+  name: string;
+  owner_id: number;
+  is_public: boolean;
+  created_at: string;
+  owner: PlaylistOwner;
+  tracks: Track[];
+}
+
+const getAlbumArtUrl = (url: string | null | undefined): string => {
+  if (url && (url.includes('.jpg') || url.includes('.png') || url.includes('.gif'))) {
+    return url;
+  }
+  return '/dark-purple-music-waves.jpg';
+}
 
 export default function PlaylistPage() {
   const router = useRouter()
-  const [currentTrackIndex, setCurrentTrackIndex] = useState(0)
-  const [isLiked, setIsLiked] = useState(false)
-  const [isSaved, setIsSaved] = useState(false)
-  const [isEditingTitle, setIsEditingTitle] = useState(false)
-  const [playlistTitle, setPlaylistTitle] = useState("AI Generated Playlist")
-  const [isPublic, setIsPublic] = useState(true)
-  const [isOwner, setIsOwner] = useState(true) // Mock owner status - set to false to see other user's playlist view
+  const params = useParams()
+  const { user, token } = useAuth()
 
-  const currentTrack = mockPlaylist[currentTrackIndex]
+  const [playlist, setPlaylist] = useState<Playlist | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const [currentTrackIndex, setCurrentTrackIndex] = useState(0)
+  const [isLiked, setIsLiked] = useState(false) // This will be replaced with real data later
+  const [isSaved, setIsSaved] = useState(false) // This will be replaced with real data later
+  const [isEditingTitle, setIsEditingTitle] = useState(false)
+  
+  const playlistId = params.id as string;
+
+  useEffect(() => {
+    if (!playlistId || !token) return;
+
+    const fetchPlaylist = async () => {
+      setIsLoading(true)
+      setError(null)
+      try {
+        const result = await getPlaylist(playlistId, token)
+        if (result.success) {
+          setPlaylist(result.data)
+        } else {
+          setError(result.error || "Failed to load playlist.")
+        }
+      } catch (err) {
+        setError("An unexpected error occurred.")
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchPlaylist()
+  }, [playlistId, token])
+
+  if (isLoading) {
+    return <div className="min-h-screen flex items-center justify-center">Loading playlist...</div>
+  }
+
+  if (error) {
+    return <div className="min-h-screen flex items-center justify-center text-destructive">Error: {error}</div>
+  }
+
+  if (!playlist) {
+    return <div className="min-h-screen flex items-center justify-center">Playlist not found.</div>
+  }
+
+  const isOwner = user?.id === playlist.owner_id
+  const currentTrack = playlist.tracks[currentTrackIndex]
 
   const handleNext = () => {
-    setCurrentTrackIndex((prev) => (prev + 1) % mockPlaylist.length)
+    setCurrentTrackIndex((prev) => (prev + 1) % playlist.tracks.length)
   }
 
   const handlePrevious = () => {
-    setCurrentTrackIndex((prev) => (prev - 1 + mockPlaylist.length) % mockPlaylist.length)
+    setCurrentTrackIndex((prev) => (prev - 1 + playlist.tracks.length) % playlist.tracks.length)
   }
 
   const handleTrackClick = (index: number) => {
@@ -61,22 +118,27 @@ export default function PlaylistPage() {
   }
 
   const handleSaveTitle = () => {
+    // TODO: Implement API call to update playlist title
     setIsEditingTitle(false)
   }
 
   const handleDelete = () => {
+    // TODO: Implement API call to delete playlist
     if (confirm("Are you sure you want to delete this playlist?")) {
-      router.push("/profile")
+      router.push(`/user/${user?.username}`)
     }
   }
 
   const handleTogglePrivacy = () => {
-    setIsPublic(!isPublic)
+    // TODO: Implement API call to update playlist privacy
+    // setIsPublic(!isPublic) 
   }
 
-  const handleCreateFromTrack = (trackId: string) => {
+  const handleCreateFromTrack = (trackId: number) => {
     router.push(`/create?seedTrack=${trackId}`)
   }
+  
+  const totalDurationMinutes = Math.floor(playlist.tracks.reduce((acc, track) => acc + track.duration, 0) / 60)
 
   return (
     <main className="container mx-auto px-4 pt-24 pb-32 md:pb-16">
@@ -89,8 +151,8 @@ export default function PlaylistPage() {
               <>
                 <input
                   type="text"
-                  value={playlistTitle}
-                  onChange={(e) => setPlaylistTitle(e.target.value)}
+                  value={playlist.name} // Use state for editing
+                  // onChange={(e) => setPlaylist({...playlist, name: e.target.value})}
                   className="flex-1 text-4xl md:text-5xl font-bold bg-transparent border-b-2 border-primary focus:outline-none"
                   autoFocus
                 />
@@ -103,7 +165,7 @@ export default function PlaylistPage() {
               </>
             ) : (
               <>
-                <h1 className="flex-1 text-4xl md:text-5xl font-bold text-balance">{playlistTitle}</h1>
+                <h1 className="flex-1 text-4xl md:text-5xl font-bold text-balance">{playlist.name}</h1>
                 {isOwner && (
                   <button
                     onClick={() => setIsEditingTitle(true)}
@@ -118,26 +180,28 @@ export default function PlaylistPage() {
 
           {/* Metadata */}
           <div className="flex items-center gap-4 text-muted-foreground">
-            <Link href="/user/1" className="hover:text-primary transition-colors">
-              by Alex Chen
+            <Link href={`/user/${playlist.owner.username}`} className="hover:text-primary transition-colors">
+              by {playlist.owner.username}
             </Link>
             <span>•</span>
             <div className="flex items-center gap-1">
-              {isPublic ? <Globe className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
-              <span>{isPublic ? "Public" : "Private"}</span>
+              {playlist.is_public ? <Globe className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
+              <span>{playlist.is_public ? "Public" : "Private"}</span>
             </div>
             <span>•</span>
-            <span>{mockPlaylist.length} tracks</span>
-            <span>•</span>
-            <span>{Math.floor(mockPlaylist.reduce((acc, track) => acc + track.duration, 0) / 60)} minutes</span>
+            <span>{playlist.tracks.length} tracks</span>
+            {totalDurationMinutes > 0 && (
+              <>
+                <span>•</span>
+                <span>{totalDurationMinutes} minutes</span>
+              </>
+            )}
           </div>
 
           {/* Action Buttons */}
           <div className="flex flex-wrap items-center gap-3">
             <button
-              onClick={() => {
-                setIsLiked(!isLiked)
-              }}
+              onClick={() => setIsLiked(!isLiked)}
               className={cn(
                 "flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all",
                 isLiked
@@ -151,9 +215,7 @@ export default function PlaylistPage() {
 
             {!isOwner && (
               <button
-                onClick={() => {
-                  setIsSaved(!isSaved)
-                }}
+                onClick={() => setIsSaved(!isSaved)}
                 className={cn(
                   "flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all",
                   isSaved
@@ -180,8 +242,8 @@ export default function PlaylistPage() {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-48">
                   <DropdownMenuItem onClick={handleTogglePrivacy}>
-                    {isPublic ? <Lock className="h-4 w-4 mr-2" /> : <Globe className="h-4 w-4 mr-2" />}
-                    Make {isPublic ? "Private" : "Public"}
+                    {playlist.is_public ? <Lock className="h-4 w-4 mr-2" /> : <Globe className="h-4 w-4 mr-2" />}
+                    Make {playlist.is_public ? "Private" : "Public"}
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={handleDelete} className="text-destructive focus:text-destructive">
@@ -195,11 +257,14 @@ export default function PlaylistPage() {
         </div>
 
         {/* Audio Player */}
-        <AudioPlayer
-          currentTrack={currentTrack}
-          onNext={handleNext}
-          onPrevious={handlePrevious}
-        />
+        {currentTrack && (
+          <AudioPlayer
+            key={currentTrack.track_id}
+            currentTrack={currentTrack}
+            onNext={handleNext}
+            onPrevious={handlePrevious}
+          />
+        )}
 
         {/* Track List */}
         <div className="bg-surface border border-border rounded-xl overflow-hidden">
@@ -207,7 +272,7 @@ export default function PlaylistPage() {
             <h2 className="text-xl font-semibold">Tracks</h2>
           </div>
           <div className="divide-y divide-border">
-            {mockPlaylist.map((track, index) => (
+            {playlist.tracks.map((track, index) => (
               <div
                 key={track.track_id}
                 className={cn(
@@ -230,20 +295,25 @@ export default function PlaylistPage() {
                     )}
                   </div>
 
-                  <div className="flex-shrink-0 w-12 h-12 bg-surface-elevated rounded-lg flex items-center justify-center">
-                    <Music2 className="h-6 w-6 text-primary" />
+                  <div className="flex-shrink-0 w-12 h-12 bg-surface rounded-lg flex items-center justify-center overflow-hidden">
+                    <img 
+                      src={getAlbumArtUrl(track.album_art_url)}
+                      alt={track.title}
+                      className="w-full h-full object-cover"
+                      onError={(e) => { e.currentTarget.src = '/dark-purple-music-waves.jpg'; }}
+                    />
                   </div>
 
                   <div className="flex-1 min-w-0">
                     <div className={cn("font-semibold truncate", currentTrackIndex === index && "text-primary")}>
                       {track.title}
                     </div>
-                    <div className="text-sm text-muted-foreground truncate">{track.artist}</div>
+                    <div className="text-sm text-muted-foreground truncate">{track.artist_name}</div>
                   </div>
 
                   <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                    <span className="hidden sm:inline">{track.genre}</span>
-                    <span>
+                    {track.genre_toplevel && <span className="hidden sm:inline">{track.genre_toplevel}</span>}
+                    <span className="hidden md:inline">
                       {Math.floor(track.duration / 60)}:{(track.duration % 60).toString().padStart(2, "0")}
                     </span>
                   </div>

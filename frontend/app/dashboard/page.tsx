@@ -7,29 +7,29 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useAuth } from "@/context/AuthContext"
 import { cn } from "@/lib/utils"
 
-// Mock data for demonstration
+// Mock data for demonstration - UPDATED to match PlaylistCard's expected prop structure
 const trendingPlaylists = [
   {
-    id: "1",
-    title: "Midnight Vibes",
-    creator: "Alex Chen",
-    trackCount: 24,
+    id: 1,
+    name: "Midnight Vibes",
+    owner: { id: 99, username: "Alex Chen" },
+    tracks: Array(24).fill(0), // Just need the length for trackCount
     likes: 342,
     coverImage: "/dark-purple-music-waves.jpg",
   },
   {
-    id: "2",
-    title: "Electronic Dreams",
-    creator: "Sarah Kim",
-    trackCount: 18,
+    id: 2,
+    name: "Electronic Dreams",
+    owner: { id: 98, username: "Sarah Kim" },
+    tracks: Array(18).fill(0),
     likes: 289,
     coverImage: "/neon-electronic-music.jpg",
   },
   {
-    id: "3",
-    title: "Acoustic Sessions",
-    creator: "Mike Johnson",
-    trackCount: 15,
+    id: 3,
+    name: "Acoustic Sessions",
+    owner: { id: 97, username: "Mike Johnson" },
+    tracks: Array(15).fill(0),
     likes: 456,
     coverImage: "/acoustic-guitar-warm.jpg",
   },
@@ -128,7 +128,7 @@ function LoggedInDashboard() {
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {trendingPlaylists.map((playlist) => (
-            <PlaylistCard key={playlist.id} {...playlist} />
+            <PlaylistCard key={playlist.id} playlist={playlist} />
           ))}
         </div>
       </TabsContent>
@@ -145,7 +145,7 @@ function GuestDashboard() {
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {trendingPlaylists.map((playlist) => (
-          <PlaylistCard key={playlist.id} {...playlist} />
+          <PlaylistCard key={playlist.id} playlist={playlist} />
         ))}
       </div>
     </div>

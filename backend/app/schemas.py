@@ -1,6 +1,22 @@
-from pydantic import BaseModel, EmailStr
-from typing import Optional
+from pydantic import BaseModel, EmailStr, field_validator
+from typing import Optional, List
 from datetime import datetime
+from . import models
+
+# --- Track Schemas ---
+class TrackBase(BaseModel):
+    track_id: int
+    title: str
+    artist_name: str
+    duration: int
+    album_art_url: Optional[str] = None
+    genre_toplevel: Optional[str] = None
+
+class Track(TrackBase):
+    audio_url: Optional[str] = None
+
+    class Config:
+        from_attributes = True
 
 # --- Token Schemas ---
 class Token(BaseModel):
@@ -12,7 +28,7 @@ class TokenData(BaseModel):
 
 # --- Listening History Schemas ---
 class ListeningHistoryBase(BaseModel):
-    track_id: str
+    track_id: int
     genre: str
 
 class ListeningHistoryCreate(ListeningHistoryBase):
@@ -22,6 +38,20 @@ class ListeningHistory(ListeningHistoryBase):
     id: int
     user_id: int
     listened_at: datetime
+
+    class Config:
+        from_attributes = True
+
+# --- Playlist Track Schemas ---
+class PlaylistTrackBase(BaseModel):
+    track_id: int
+
+class PlaylistTrackCreate(PlaylistTrackBase):
+    pass
+
+class PlaylistTrack(PlaylistTrackBase):
+    id: int
+    playlist_id: int
 
     class Config:
         from_attributes = True
@@ -42,10 +72,56 @@ class UserUpdate(BaseModel):
 class UserStats(BaseModel):
     top_genre: Optional[str] = None
 
+# Schema for the owner field within a Playlist
+class PlaylistOwner(BaseModel):
+    id: int
+    username: str
+
+# --- Playlist Schemas ---
+class PlaylistBase(BaseModel):
+    name: str
+    is_public: bool = True
+
+class PlaylistCreate(BaseModel):
+    name: str
+    seed_track_id: int
+
+class Playlist(PlaylistBase):
+    id: int
+    owner_id: int
+    created_at: datetime
+    owner: PlaylistOwner
+    tracks: List[Track] = []
+
+    @field_validator('tracks', mode='before')
+    @classmethod
+    def extract_tracks_from_playlist_tracks(cls, v):
+        if v and isinstance(v[0], models.PlaylistTrack):
+            # Extract the actual Track objects
+            tracks = [pt.track for pt in v if pt.track is not None]
+            # Manually add the audio_url to each track
+            for track in tracks:
+                track.audio_url = f"/api/tracks/{track.track_id}/stream"
+            return tracks
+        return v
+
+    class Config:
+        from_attributes = True
+
+class UserForProfile(UserBase):
+    id: int
+    is_active: bool
+    listening_history: List[ListeningHistory] = []
+
+    class Config:
+        from_attributes = True
+
+# This full User schema depends on Playlist, so it must come after.
 class User(UserBase):
     id: int
     is_active: bool
-    listening_history: list[ListeningHistory] = []
+    listening_history: List[ListeningHistory] = []
+    playlists: List[Playlist] = []
 
     class Config:
         from_attributes = True

@@ -1,33 +1,45 @@
 "use client"
 
 import type React from "react"
-
 import { Play, Heart, Share2, Music2 } from "lucide-react"
 import { useState } from "react"
 import { cn } from "@/lib/utils"
 import { useRouter } from "next/navigation"
 
-interface PlaylistCardProps {
-  id: string
-  title: string
-  creator: string
-  creatorId?: string
-  trackCount: number
-  likes: number
-  coverImage?: string
-  isLiked?: boolean
+// Interface for the playlist object coming from the backend
+interface Playlist {
+  id: number;
+  name: string;
+  owner: {
+    id: number;
+    username: string;
+  };
+  tracks: any[]; // We just need the count
+  // These are not yet available from the backend, so they are optional
+  coverImage?: string; 
+  likes?: number;
+  isLiked?: boolean;
 }
 
-export function PlaylistCard({
-  id,
-  title,
-  creator,
-  creatorId,
-  trackCount,
-  likes,
-  coverImage,
-  isLiked = false,
-}: PlaylistCardProps) {
+interface PlaylistCardProps {
+  playlist: Playlist;
+}
+
+export function PlaylistCard({ playlist }: PlaylistCardProps) {
+  const { 
+    id, 
+    name: title, 
+    owner, 
+    tracks, 
+    coverImage, 
+    likes = 0, 
+    isLiked = false 
+  } = playlist;
+  
+  const creator = owner.username;
+  const creatorId = owner.id.toString();
+  const trackCount = tracks.length;
+
   const [liked, setLiked] = useState(isLiked)
   const [likeCount, setLikeCount] = useState(likes)
   const router = useRouter()
@@ -38,7 +50,9 @@ export function PlaylistCard({
 
   const handleCreatorClick = (e: React.MouseEvent) => {
     e.stopPropagation()
-    router.push(`/user/${creatorId || "1"}`)
+    if (creatorId) {
+      router.push(`/user/${creatorId}`)
+    }
   }
 
   const handleLike = (e: React.MouseEvent) => {
@@ -54,6 +68,16 @@ export function PlaylistCard({
     // Share functionality
   }
 
+  // Use the first track's album art as the cover, if available
+  const dynamicCoverImage = coverImage || (tracks[0] && tracks[0].album_art_url);
+
+  const getAlbumArtUrl = (url: string | null | undefined): string => {
+    if (url && (url.includes('.jpg') || url.includes('.png') || url.includes('.gif'))) {
+      return url;
+    }
+    return '/dark-purple-music-waves.jpg';
+  }
+
   return (
     <div
       onClick={handleCardClick}
@@ -61,13 +85,12 @@ export function PlaylistCard({
     >
       {/* Cover Image */}
       <div className="relative aspect-square bg-surface-elevated overflow-hidden">
-        {coverImage ? (
-          <img src={coverImage || "/placeholder.svg"} alt={title} className="w-full h-full object-cover" />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center">
-            <Music2 className="h-16 w-16 text-muted-foreground/30" />
-          </div>
-        )}
+        <img 
+            src={getAlbumArtUrl(dynamicCoverImage)} 
+            alt={title} 
+            className="w-full h-full object-cover"
+            onError={(e) => { e.currentTarget.src = '/dark-purple-music-waves.jpg'; }}
+        />
 
         {/* Play Button Overlay */}
         <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
