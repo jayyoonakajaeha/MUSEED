@@ -5,7 +5,7 @@ import { jwtDecode } from 'jwt-decode';
 
 interface AuthContextType {
   token: string | null;
-  user: { sub: string } | null;
+  user: { username: string } | null;
   login: (token: string) => void;
   logout: () => void;
 }
@@ -14,7 +14,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
-  const [user, setUser] = useState<{ sub: string } | null>(null);
+  const [user, setUser] = useState<{ username: string } | null>(null);
 
   useEffect(() => {
     const storedToken = localStorage.getItem('authToken');
@@ -23,7 +23,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const decodedUser: { sub: string, exp: number } = jwtDecode(storedToken);
         if (decodedUser.exp * 1000 > Date.now()) {
           setToken(storedToken);
-          setUser({ sub: decodedUser.sub });
+          setUser({ username: decodedUser.sub });
         } else {
           // Token expired
           localStorage.removeItem('authToken');
@@ -40,7 +40,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const decodedUser: { sub: string } = jwtDecode(newToken);
       localStorage.setItem('authToken', newToken);
       setToken(newToken);
-      setUser({ sub: decodedUser.sub });
+      setUser({ username: decodedUser.sub });
     } catch (error) {
       console.error("Failed to decode token on login", error);
     }

@@ -50,7 +50,7 @@ export function PlaylistCard({ playlist, isOwner = false, onDelete, onTogglePubl
   } = playlist;
   
   const creator = owner.username;
-  const creatorId = owner.id.toString();
+  const creatorUsername = owner.username;
   const trackCount = tracks.length;
 
   const { token } = useAuth();
@@ -73,8 +73,8 @@ export function PlaylistCard({ playlist, isOwner = false, onDelete, onTogglePubl
 
   const handleCreatorClick = (e: React.MouseEvent) => {
     e.stopPropagation()
-    if (creatorId) {
-      router.push(`/user/${creatorId}`)
+    if (creatorUsername) {
+      router.push(`/user/${creatorUsername}`)
     }
   }
 

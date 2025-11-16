@@ -2,9 +2,9 @@ import faiss
 import numpy as np
 import os
 import json
-from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile, Form
+from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile, Form, Query
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 import io
 
 # Add imports for model loading and audio processing
@@ -87,6 +87,37 @@ def process_uploaded_audio(audio_bytes: bytes) -> torch.Tensor:
 
 
 # --- API Endpoints ---
+
+@router.get("/discover", response_model=List[schemas.Playlist])
+def get_discover_playlists(
+    skip: int = 0,
+    limit: int = 20,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """
+    Get a list of public playlists for the discover page.
+    """
+    playlists = crud.get_public_playlists(db, skip=skip, limit=limit)
+    # Dynamically set whether the current user has liked each playlist
+    for playlist in playlists:
+        playlist.liked_by_user = current_user in playlist.liked_by
+    return playlists
+
+@router.get("/search", response_model=List[schemas.Playlist])
+def search_for_playlists(
+    q: Optional[str] = Query(None, min_length=2),
+    skip: int = 0,
+    limit: int = 10,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    if q is None:
+        return []
+    playlists = crud.search_playlists(db, query=q, skip=skip, limit=limit)
+    for playlist in playlists:
+        playlist.liked_by_user = current_user in playlist.liked_by
+    return playlists
 
 @router.post("/upload", response_model=schemas.Playlist)
 async def create_ai_playlist_from_upload(

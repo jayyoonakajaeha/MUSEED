@@ -134,9 +134,13 @@ class UserForProfile(UserBase):
 class User(UserBase):
     id: int
     is_active: bool
-    listening_history: List[ListeningHistory] = []
     playlists: List[Playlist] = []
     liked_playlists: List[Playlist] = []
+    
+    # Fields for follow feature
+    is_followed_by_current_user: bool = False # Set dynamically
+    followers_count: int
+    following_count: int
 
     class Config:
         from_attributes = True

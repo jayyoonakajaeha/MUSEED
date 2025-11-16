@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session, joinedload, subqueryload
-from sqlalchemy import func
+from sqlalchemy import func, desc, or_
 from . import models, schemas, security
 from typing import List, Optional
 
@@ -12,24 +12,34 @@ def get_user_by_email(db: Session, email: str):
     return db.query(models.User).filter(models.User.email == email).first()
 
 def get_user_by_username(db: Session, username: str):
-    # Eagerly load playlists and their tracks to prevent N+1 query issues
+    # Eagerly load relationships for profile page
     return db.query(models.User).options(
         subqueryload(models.User.playlists).options(
-            subqueryload(models.Playlist.tracks).options(
-                joinedload(models.PlaylistTrack.track)
-            )
-        ),
-        subqueryload(models.User.liked_playlists).options(
-            joinedload(models.Playlist.owner),
+            joinedload(models.Playlist.owner), # Eager load the owner of each playlist
             subqueryload(models.Playlist.tracks).options(
                 joinedload(models.PlaylistTrack.track)
             ),
-            subqueryload(models.Playlist.liked_by) # Eager load who liked this playlist
-        )
+            subqueryload(models.Playlist.liked_by)
+        ),
+        subqueryload(models.User.liked_playlists).options(
+            joinedload(models.Playlist.owner), # Eager load the owner of each liked playlist
+            subqueryload(models.Playlist.tracks).options(
+                joinedload(models.PlaylistTrack.track)
+            ),
+            subqueryload(models.Playlist.liked_by)
+        ),
+        joinedload(models.User.followers),
+        joinedload(models.User.following)
     ).filter(models.User.username == username).first()
 
 def get_users(db: Session, skip: int = 0, limit: int = 100):
     return db.query(models.User).offset(skip).limit(limit).all()
+
+def search_users(db: Session, query: str, skip: int = 0, limit: int = 100):
+    search_query = f"%{query}%"
+    return db.query(models.User).filter(
+        models.User.username.ilike(search_query)
+    ).offset(skip).limit(limit).all()
 
 def create_user(db: Session, user: schemas.UserCreate):
     hashed_password = security.get_password_hash(user.password)
@@ -56,6 +66,20 @@ def update_user(db: Session, db_user: models.User, user_in: schemas.UserUpdate):
     db.commit()
     db.refresh(db_user)
     return db_user
+
+def follow_user(db: Session, follower: models.User, followed: models.User):
+    if follower.id == followed.id:
+        return None # Users cannot follow themselves
+    if followed not in follower.following:
+        follower.following.append(followed)
+        db.commit()
+    return follower
+
+def unfollow_user(db: Session, follower: models.User, followed: models.User):
+    if followed in follower.following:
+        follower.following.remove(followed)
+        db.commit()
+    return follower
 
 # --- Listening History CRUD ---
 
@@ -91,6 +115,24 @@ def get_playlist(db: Session, playlist_id: int):
         subqueryload(models.Playlist.tracks).joinedload(models.PlaylistTrack.track),
         subqueryload(models.Playlist.liked_by) # Eager load who liked this playlist
     ).filter(models.Playlist.id == playlist_id).first()
+
+def get_public_playlists(db: Session, skip: int = 0, limit: int = 20):
+    return db.query(models.Playlist).options(
+        joinedload(models.Playlist.owner),
+        subqueryload(models.Playlist.tracks).joinedload(models.PlaylistTrack.track),
+        subqueryload(models.Playlist.liked_by)
+    ).filter(models.Playlist.is_public == True).order_by(desc(models.Playlist.created_at)).offset(skip).limit(limit).all()
+
+def search_playlists(db: Session, query: str, skip: int = 0, limit: int = 10):
+    search_query = f"%{query}%"
+    return db.query(models.Playlist).options(
+        joinedload(models.Playlist.owner),
+        subqueryload(models.Playlist.tracks).joinedload(models.PlaylistTrack.track),
+        subqueryload(models.Playlist.liked_by)
+    ).filter(
+        models.Playlist.is_public == True,
+        models.Playlist.name.ilike(search_query)
+    ).order_by(desc(models.Playlist.created_at)).offset(skip).limit(limit).all()
 
 def get_user_playlists(db: Session, user_id: int):
     return db.query(models.Playlist).options(
@@ -180,7 +222,6 @@ def unlike_playlist(db: Session, playlist_id: int, user_id: int):
 
 def search_tracks(db: Session, query: str, skip: int = 0, limit: int = 100):
     search_query = f"%{query}%"
-    from sqlalchemy import or_
     return db.query(models.Track).filter(
         or_(
             models.Track.title.ilike(search_query),

@@ -1,22 +1,112 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 
 from .. import crud, schemas, models
-from ..dependencies import get_db, get_current_user
+from ..dependencies import get_db, get_current_user, get_current_user_optional
 
 router = APIRouter(
     prefix="/api/users",
     tags=["users"]
 )
 
+def _populate_user_response(db_user: models.User, current_user: Optional[models.User]) -> schemas.User:
+    """Helper function to populate the full User schema from an ORM object."""
+    is_followed = False
+    if current_user and db_user.id != current_user.id:
+        is_followed = any(follower.id == current_user.id for follower in db_user.followers)
+
+    # Manually construct playlist responses to ensure correct serialization
+    # using model_validate which is the Pydantic v2 equivalent of from_orm
+    created_playlists = [schemas.Playlist.model_validate(pl) for pl in db_user.playlists]
+    liked_playlists = [schemas.Playlist.model_validate(pl) for pl in db_user.liked_playlists]
+    
+    # Set liked_by_user status for each playlist
+    if current_user:
+        # Create a set of liked playlist IDs for efficient lookup
+        current_user_liked_playlist_ids = {pl.id for pl in liked_playlists}
+
+        for pl in created_playlists:
+            pl.liked_by_user = pl.id in current_user_liked_playlist_ids
+        for pl in liked_playlists:
+            pl.liked_by_user = True # All playlists in this list are liked by the current user
+
+    user_response = schemas.User(
+        id=db_user.id,
+        username=db_user.username,
+        email=db_user.email,
+        is_active=db_user.is_active,
+        playlists=created_playlists,
+        liked_playlists=liked_playlists,
+        followers_count=len(db_user.followers),
+        following_count=len(db_user.following),
+        is_followed_by_current_user=is_followed
+    )
+    return user_response
+
+
+@router.get("/search", response_model=List[schemas.UserForProfile])
+def search_for_users(
+    q: Optional[str] = None,
+    skip: int = 0,
+    limit: int = 10,
+    db: Session = Depends(get_db)
+):
+    """
+    Search for users by username.
+    """
+    if q is None:
+        return []
+    users = crud.search_users(db, query=q, skip=skip, limit=limit)
+    return users
+
 @router.get("/{username}", response_model=schemas.User)
-def read_user(username: str, db: Session = Depends(get_db)):
-    # This is a public endpoint, no auth required for now
+def read_user(
+    username: str, 
+    db: Session = Depends(get_db), 
+    current_user: Optional[models.User] = Depends(get_current_user_optional)
+):
     db_user = crud.get_user_by_username(db, username=username)
     if db_user is None:
         raise HTTPException(status_code=404, detail="User not found")
-    return db_user
+    
+    # The frontend's logic for created/liked playlists is separate,
+    # so we can return the full user object here.
+    return _populate_user_response(db_user, current_user)
+
+@router.post("/{username}/follow", response_model=schemas.User)
+def follow_user_endpoint(
+    username: str,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    user_to_follow = crud.get_user_by_username(db, username=username)
+    if not user_to_follow:
+        raise HTTPException(status_code=404, detail="User to follow not found")
+    
+    if current_user.id == user_to_follow.id:
+        raise HTTPException(status_code=400, detail="You cannot follow yourself")
+
+    crud.follow_user(db, follower=current_user, followed=user_to_follow)
+    
+    updated_user = crud.get_user_by_username(db, username=username)
+    return _populate_user_response(updated_user, current_user)
+
+@router.delete("/{username}/follow", response_model=schemas.User)
+def unfollow_user_endpoint(
+    username: str,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    user_to_unfollow = crud.get_user_by_username(db, username=username)
+    if not user_to_unfollow:
+        raise HTTPException(status_code=404, detail="User to unfollow not found")
+
+    crud.unfollow_user(db, follower=current_user, followed=user_to_unfollow)
+
+    updated_user = crud.get_user_by_username(db, username=username)
+    return _populate_user_response(updated_user, current_user)
+
 
 @router.get("/{username}/stats", response_model=schemas.UserStats)
 def read_user_stats(username: str, db: Session = Depends(get_db)):
@@ -25,9 +115,7 @@ def read_user_stats(username: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="User not found")
     
     top_genre_result = crud.get_top_genre_for_user(db, user_id=db_user.id)
-    
     top_genre = top_genre_result.genre if top_genre_result else None
-    
     return schemas.UserStats(top_genre=top_genre)
 
 @router.put("/{username}", response_model=schemas.User)
@@ -37,7 +125,6 @@ def update_user_profile(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
-    # Authorization: Ensure the user is updating their own profile
     if current_user.username != username:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -48,19 +135,19 @@ def update_user_profile(
     if not db_user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    # Check if the new username is already taken
     if user_in.username and user_in.username != db_user.username:
         existing_user = crud.get_user_by_username(db, username=user_in.username)
         if existing_user:
             raise HTTPException(status_code=400, detail="Username already taken.")
 
-    # Check if the new email is already taken
     if user_in.email and user_in.email != db_user.email:
         existing_user = crud.get_user_by_email(db, email=user_in.email)
         if existing_user:
             raise HTTPException(status_code=400, detail="Email already registered by another user.")
 
-    return crud.update_user(db=db, db_user=db_user, user_in=user_in)
+    updated_db_user = crud.update_user(db=db, db_user=db_user, user_in=user_in)
+    reloaded_user = crud.get_user_by_username(db, username=updated_db_user.username)
+    return _populate_user_response(reloaded_user, current_user)
 
 @router.get("/{username}/playlists", response_model=List[schemas.Playlist])
 def get_user_created_playlists(
@@ -72,9 +159,15 @@ def get_user_created_playlists(
     if db_user is None:
         raise HTTPException(status_code=404, detail="User not found")
     
-    playlists = crud.get_user_playlists(db, user_id=db_user.id)
+    playlists = [schemas.Playlist.model_validate(pl) for pl in db_user.playlists]
+    
+    # We need the full current user's liked playlists to check against
+    current_user_full = crud.get_user_by_username(db, username=current_user.username)
+    liked_playlist_ids = {pl.id for pl in current_user_full.liked_playlists}
+
     for playlist in playlists:
-        playlist.liked_by_user = current_user in playlist.liked_by
+        playlist.liked_by_user = playlist.id in liked_playlist_ids
+        
     return playlists
 
 @router.get("/{username}/likes", response_model=List[schemas.Playlist])
@@ -87,7 +180,8 @@ def get_user_liked_playlists(
     if db_user is None:
         raise HTTPException(status_code=404, detail="User not found")
     
-    liked_playlists = crud.get_liked_playlists(db, user_id=db_user.id)
+    liked_playlists = [schemas.Playlist.model_validate(pl) for pl in db_user.liked_playlists]
     for playlist in liked_playlists:
-        playlist.liked_by_user = current_user in playlist.liked_by
+        playlist.liked_by_user = True # By definition, the user likes all these playlists
+        
     return liked_playlists
