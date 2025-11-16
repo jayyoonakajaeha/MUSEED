@@ -192,8 +192,76 @@ def create_ai_playlist_from_id(
     return new_playlist
 
 @router.get("/{playlist_id}", response_model=schemas.Playlist)
-def read_playlist(playlist_id: int, db: Session = Depends(get_db)):
+def read_playlist(playlist_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     db_playlist = crud.get_playlist(db, playlist_id=playlist_id)
     if db_playlist is None:
         raise HTTPException(status_code=404, detail="Playlist not found")
+    
+    # Set liked_by_user dynamically
+    db_playlist.liked_by_user = current_user in db_playlist.liked_by
+    
+    return db_playlist
+
+@router.delete("/{playlist_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_playlist(
+    playlist_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    db_playlist = crud.get_playlist(db, playlist_id=playlist_id)
+    if db_playlist is None:
+        raise HTTPException(status_code=404, detail="Playlist not found")
+    if db_playlist.owner_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to delete this playlist")
+    
+    crud.delete_playlist(db, playlist_id=playlist_id)
+    return {"message": "Playlist deleted successfully"}
+
+@router.put("/{playlist_id}", response_model=schemas.Playlist)
+def update_playlist(
+    playlist_id: int,
+    playlist_update: schemas.PlaylistUpdate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    db_playlist = crud.get_playlist(db, playlist_id=playlist_id)
+    if db_playlist is None:
+        raise HTTPException(status_code=404, detail="Playlist not found")
+    if db_playlist.owner_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to update this playlist")
+    
+    updated_playlist = crud.update_playlist(db, playlist_id=playlist_id, playlist_update=playlist_update)
+    if updated_playlist is None:
+        raise HTTPException(status_code=500, detail="Failed to update playlist")
+    
+    updated_playlist.liked_by_user = current_user in updated_playlist.liked_by
+    
+    return updated_playlist
+
+@router.post("/{playlist_id}/like", response_model=schemas.Playlist)
+def like_playlist(
+    playlist_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    db_playlist = crud.like_playlist(db, playlist_id=playlist_id, user_id=current_user.id)
+    if db_playlist is None:
+        raise HTTPException(status_code=404, detail="Playlist not found")
+    
+    db_playlist.liked_by_user = True # User just liked it
+    
+    return db_playlist
+
+@router.delete("/{playlist_id}/like", response_model=schemas.Playlist)
+def unlike_playlist(
+    playlist_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    db_playlist = crud.unlike_playlist(db, playlist_id=playlist_id, user_id=current_user.id)
+    if db_playlist is None:
+        raise HTTPException(status_code=404, detail="Playlist not found")
+    
+    db_playlist.liked_by_user = False # User just unliked it
+    
     return db_playlist

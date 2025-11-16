@@ -1,21 +1,22 @@
-import sqlalchemy
+import os
+import sys
+from sqlalchemy import create_engine
+
+# Add the app's root directory to the Python path to allow for model imports
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '.')))
+
 from app.config import settings
+from app.database import Base
+from app import models # Import all models to ensure they are registered with Base
 
 # Connect to the database
-engine = sqlalchemy.create_engine(settings.DATABASE_URL)
+engine = create_engine(settings.DATABASE_URL)
 
 try:
-    with engine.connect() as connection:
-        # We need to use a transaction to drop the tables
-        with connection.begin():
-            print("Dropping all known tables...")
-            # Drop tables in reverse order of dependency
-            connection.execute(sqlalchemy.text("DROP TABLE IF EXISTS playlist_tracks;"))
-            connection.execute(sqlalchemy.text("DROP TABLE IF EXISTS playlists;"))
-            connection.execute(sqlalchemy.text("DROP TABLE IF EXISTS listening_history;"))
-            connection.execute(sqlalchemy.text("DROP TABLE IF EXISTS tracks;"))
-            connection.execute(sqlalchemy.text("DROP TABLE IF EXISTS users;"))
-            print("All tables dropped successfully.")
+    print("Dropping all known tables...")
+    # drop_all handles dependencies automatically
+    Base.metadata.drop_all(engine)
+    print("All tables dropped successfully.")
 
 except Exception as e:
     print(f"An error occurred: {e}")

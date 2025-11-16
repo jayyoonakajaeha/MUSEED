@@ -230,3 +230,134 @@ export async function getPlaylist(playlistId: string, token: string) {
     return { success: false, error: error.message };
   }
 }
+
+export async function deletePlaylist(playlistId: number, token: string) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/playlists/${playlistId}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      const data = await response.json();
+      throw new Error(data.detail || 'Failed to delete playlist');
+    }
+
+    return { success: true };
+  } catch (error: any) {
+    console.error("Failed to delete playlist:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+export async function updatePlaylist(playlistId: number, updateData: { name?: string; is_public?: boolean }, token: string) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/playlists/${playlistId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify(updateData),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.detail || 'Failed to update playlist');
+    }
+
+    return { success: true, data };
+  } catch (error: any) {
+    console.error("Failed to update playlist:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+export async function likePlaylist(playlistId: number, token: string) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/playlists/${playlistId}/like`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.detail || 'Failed to like playlist');
+    }
+
+    return { success: true, data };
+  } catch (error: any) {
+    console.error("Failed to like playlist:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+export async function unlikePlaylist(playlistId: number, token: string) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/playlists/${playlistId}/like`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.detail || 'Failed to unlike playlist');
+    }
+
+    return { success: true, data };
+  } catch (error: any) {
+    console.error("Failed to unlike playlist:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+export async function getUserCreatedPlaylists(username: string, token: string) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/users/${username}/playlists`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.detail || 'Failed to fetch user created playlists');
+    }
+
+    return { success: true, data };
+  } catch (error: any) {
+    console.error("Failed to fetch user created playlists:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+export async function getUserLikedPlaylists(username: string, token: string) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/users/${username}/likes`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.detail || 'Failed to fetch user liked playlists');
+    }
+
+    return { success: true, data };
+  } catch (error: any) {
+    console.error("Failed to fetch user liked playlists:", error);
+    return { success: false, error: error.message };
+  }
+}

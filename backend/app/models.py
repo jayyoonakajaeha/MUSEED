@@ -1,7 +1,12 @@
-from sqlalchemy import Boolean, Column, Integer, String, DateTime, ForeignKey
+from sqlalchemy import Boolean, Column, Integer, String, DateTime, ForeignKey, Table
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from .database import Base
+
+playlist_likes = Table('playlist_likes', Base.metadata,
+    Column('user_id', Integer, ForeignKey('users.id'), primary_key=True),
+    Column('playlist_id', Integer, ForeignKey('playlists.id'), primary_key=True)
+)
 
 class User(Base):
     __tablename__ = "users"
@@ -14,6 +19,7 @@ class User(Base):
 
     listening_history = relationship("ListeningHistory", back_populates="user")
     playlists = relationship("Playlist", back_populates="owner")
+    liked_playlists = relationship("Playlist", secondary=playlist_likes, back_populates="liked_by")
 
 class ListeningHistory(Base):
     __tablename__ = "listening_history"
@@ -38,6 +44,7 @@ class Playlist(Base):
 
     owner = relationship("User", back_populates="playlists")
     tracks = relationship("PlaylistTrack", back_populates="playlist", cascade="all, delete-orphan")
+    liked_by = relationship("User", secondary=playlist_likes, back_populates="liked_playlists")
 
 class PlaylistTrack(Base):
     __tablename__ = "playlist_tracks"

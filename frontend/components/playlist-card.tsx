@@ -1,10 +1,17 @@
 "use client"
 
 import type React from "react"
-import { Play, Heart, Share2, Music2 } from "lucide-react"
-import { useState } from "react"
+import { Play, Heart, Share2, Music2, Trash2, Eye, EyeOff } from "lucide-react"
+import { useState, useEffect } from "react"
 import { cn } from "@/lib/utils"
 import { useRouter } from "next/navigation"
+import { Switch } from "@/components/ui/switch"
+import { Label } from "@/components/ui/label"
+import { useAuth } from "@/context/AuthContext"
+import { likePlaylist, unlikePlaylist } from "@/lib/api"
+import { toast } from "@/components/ui/use-toast"
+import { Button } from "@/components/ui/button"
+
 
 // Interface for the playlist object coming from the backend
 interface Playlist {
@@ -14,34 +21,50 @@ interface Playlist {
     id: number;
     username: string;
   };
+  owner_username: string; // Added for convenience
   tracks: any[]; // We just need the count
+  is_public: boolean; // Added
+  likes_count: number; // Added
+  liked_by_user: boolean; // Added
   // These are not yet available from the backend, so they are optional
   coverImage?: string; 
-  likes?: number;
-  isLiked?: boolean;
 }
 
 interface PlaylistCardProps {
   playlist: Playlist;
+  isOwner?: boolean; // New prop to indicate if the current user owns this playlist
+  onDelete?: (playlistId: number) => void; // New prop for delete action
+  onTogglePublic?: (playlistId: number, isPublic: boolean) => void; // New prop for public/private toggle
 }
 
-export function PlaylistCard({ playlist }: PlaylistCardProps) {
+export function PlaylistCard({ playlist, isOwner = false, onDelete, onTogglePublic }: PlaylistCardProps) {
   const { 
     id, 
     name: title, 
     owner, 
     tracks, 
+    is_public,
+    likes_count,
+    liked_by_user,
     coverImage, 
-    likes = 0, 
-    isLiked = false 
   } = playlist;
   
   const creator = owner.username;
   const creatorId = owner.id.toString();
   const trackCount = tracks.length;
 
-  const [liked, setLiked] = useState(isLiked)
-  const [likeCount, setLikeCount] = useState(likes)
+  const { token } = useAuth();
+
+  const [liked, setLiked] = useState(liked_by_user)
+  const [currentLikeCount, setCurrentLikeCount] = useState(likes_count)
+  const [isPublicState, setIsPublicState] = useState(is_public);
+
+  useEffect(() => {
+    setLiked(liked_by_user);
+    setCurrentLikeCount(likes_count);
+    setIsPublicState(is_public);
+  }, [liked_by_user, likes_count, is_public]);
+
   const router = useRouter()
 
   const handleCardClick = () => {
@@ -55,18 +78,66 @@ export function PlaylistCard({ playlist }: PlaylistCardProps) {
     }
   }
 
-  const handleLike = (e: React.MouseEvent) => {
+  const handleLike = async (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
-    setLiked(!liked)
-    setLikeCount(liked ? likeCount - 1 : likeCount + 1)
+
+    if (!token) {
+      toast({
+        title: "Login Required",
+        description: "You must be logged in to like playlists.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (liked) {
+      const result = await unlikePlaylist(id, token);
+      if (result.success) {
+        setLiked(false);
+        setCurrentLikeCount(prev => prev - 1);
+      } else {
+        toast({
+          title: "Error",
+          description: result.error || "Failed to unlike playlist.",
+          variant: "destructive",
+        });
+      }
+    } else {
+      const result = await likePlaylist(id, token);
+      if (result.success) {
+        setLiked(true);
+        setCurrentLikeCount(prev => prev + 1);
+      } else {
+        toast({
+          title: "Error",
+          description: result.error || "Failed to like playlist.",
+          variant: "destructive",
+        });
+      }
+    }
   }
 
   const handleShare = (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
     // Share functionality
+    toast({
+      title: "Feature Coming Soon",
+      description: "Share functionality is not yet implemented.",
+    });
   }
+
+  const handleDeleteClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onDelete?.(id);
+  };
+
+  const handlePublicToggle = (checked: boolean) => {
+    setIsPublicState(checked);
+    onTogglePublic?.(id, checked);
+  };
 
   // Use the first track's album art as the cover, if available
   const dynamicCoverImage = coverImage || (tracks[0] && tracks[0].album_art_url);
@@ -124,7 +195,7 @@ export function PlaylistCard({ playlist }: PlaylistCardProps) {
               )}
             >
               <Heart className={cn("h-4 w-4", liked && "fill-current")} />
-              <span className="text-xs font-medium">{likeCount}</span>
+              <span className="text-xs font-medium">{currentLikeCount}</span>
             </button>
 
             <button onClick={handleShare} className="p-1 text-muted-foreground hover:text-foreground transition-colors">
@@ -132,6 +203,25 @@ export function PlaylistCard({ playlist }: PlaylistCardProps) {
             </button>
           </div>
         </div>
+
+        {isOwner && (
+          <div className="flex items-center justify-between pt-2 border-t border-border-200">
+            <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+              <Switch
+                id={`public-toggle-${id}`}
+                checked={isPublicState}
+                onCheckedChange={handlePublicToggle}
+              />
+              <Label htmlFor={`public-toggle-${id}`} className="text-sm flex items-center gap-1">
+                {isPublicState ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                {isPublicState ? "Public" : "Private"}
+              </Label>
+            </div>
+            <Button variant="ghost" size="icon" onClick={handleDeleteClick} className="text-destructive hover:bg-destructive/10">
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   )

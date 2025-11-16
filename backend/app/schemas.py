@@ -1,5 +1,5 @@
-from pydantic import BaseModel, EmailStr, field_validator
-from typing import Optional, List
+from pydantic import BaseModel, EmailStr, field_validator, Field, computed_field
+from typing import Optional, List, Any
 from datetime import datetime
 from . import models
 
@@ -77,6 +77,9 @@ class PlaylistOwner(BaseModel):
     id: int
     username: str
 
+    class Config:
+        from_attributes = True
+
 # --- Playlist Schemas ---
 class PlaylistBase(BaseModel):
     name: str
@@ -86,17 +89,28 @@ class PlaylistCreate(BaseModel):
     name: str
     seed_track_id: int
 
+class PlaylistUpdate(BaseModel):
+    name: Optional[str] = None
+    is_public: Optional[bool] = None
+
 class Playlist(PlaylistBase):
     id: int
     owner_id: int
     created_at: datetime
     owner: PlaylistOwner
     tracks: List[Track] = []
+    liked_by: List[PlaylistOwner] = []
+    liked_by_user: bool = False # This will be set dynamically in the router
+
+    @computed_field
+    @property
+    def likes_count(self) -> int:
+        return len(self.liked_by)
 
     @field_validator('tracks', mode='before')
     @classmethod
     def extract_tracks_from_playlist_tracks(cls, v):
-        if v and isinstance(v[0], models.PlaylistTrack):
+        if v and isinstance(v, list) and len(v) > 0 and isinstance(v[0], models.PlaylistTrack):
             # Extract the actual Track objects
             tracks = [pt.track for pt in v if pt.track is not None]
             # Manually add the audio_url to each track
@@ -122,6 +136,7 @@ class User(UserBase):
     is_active: bool
     listening_history: List[ListeningHistory] = []
     playlists: List[Playlist] = []
+    liked_playlists: List[Playlist] = []
 
     class Config:
         from_attributes = True

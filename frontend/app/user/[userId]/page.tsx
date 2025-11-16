@@ -9,14 +9,20 @@ import { Badge } from "@/components/ui/badge"
 import { PlaylistCard } from "@/components/playlist-card"
 import { UserPlus, UserMinus, Music, Heart, Users, Loader2, Edit } from "lucide-react"
 import { useAuth } from "@/context/AuthContext"
-import { getUserProfile, getUserStats } from "@/lib/api"
+import { getUserProfile, getUserStats, getUserCreatedPlaylists, getUserLikedPlaylists, deletePlaylist, updatePlaylist } from "@/lib/api"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { toast } from "@/components/ui/use-toast"
+import { cn } from "@/lib/utils"
 
 // More accurate types to match backend
 interface Playlist {
   id: number;
   name: string;
   owner_id: number;
+  owner_username: string; // Added
   is_public: boolean;
+  likes_count: number; // Added
+  liked_by_user: boolean; // Added
   // Add other relevant playlist fields if needed
 }
 
@@ -24,7 +30,7 @@ type UserProfile = {
   id: number;
   username: string;
   email: string;
-  playlists: Playlist[];
+  playlists: Playlist[]; // This will now represent created playlists
 };
 
 // Helper to format genre names into image file names
@@ -43,39 +49,108 @@ export default function UserProfilePage() {
   const [topGenre, setTopGenre] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [isFollowing, setIsFollowing] = useState(false)
+  const [isFollowing, setIsFollowing] = useState(false) // Mocked for now
+  const [activeTab, setActiveTab] = useState("my-playlists"); // New state for active tab
+  const [userPlaylists, setUserPlaylists] = useState<Playlist[]>([]); // New state for user's created playlists
+  const [likedPlaylists, setLikedPlaylists] = useState<Playlist[]>([]); // New state for user's liked playlists
 
   useEffect(() => {
-    if (userId) {
-      const fetchProfileData = async () => {
-        setLoading(true)
-        setError(null)
-
-        const [profileResult, statsResult] = await Promise.all([
-            token ? getUserProfile(userId, token) : Promise.resolve({ success: false, error: "Not logged in" }),
-            getUserStats(userId)
+    if (userId && token) {
+      const fetchAllData = async () => {
+        setLoading(true);
+        setError(null);
+  
+        const [profileResult, statsResult, createdResult, likedResult] = await Promise.all([
+          getUserProfile(userId, token),
+          getUserStats(userId),
+          getUserCreatedPlaylists(userId, token),
+          getUserLikedPlaylists(userId, token),
         ]);
-
+  
         if (profileResult.success) {
-          // Use real playlist data from the API
-          setProfileData(profileResult.data)
+          setProfileData(profileResult.data);
         } else {
-          setError(profileResult.error || "Failed to load profile.")
+          setError(profileResult.error || "Failed to load profile.");
         }
-
+  
         if (statsResult.success) {
-            setTopGenre(statsResult.data.top_genre);
+          setTopGenre(statsResult.data.top_genre);
         }
-
-        setLoading(false)
-      }
-      fetchProfileData()
+  
+        if (createdResult.success) {
+          setUserPlaylists(createdResult.data);
+        } else {
+          toast({
+            title: "Error",
+            description: createdResult.error || "Failed to load user's playlists.",
+            variant: "destructive",
+          });
+        }
+  
+        if (likedResult.success) {
+          setLikedPlaylists(likedResult.data);
+        } else {
+          toast({
+            title: "Error",
+            description: likedResult.error || "Failed to load liked playlists.",
+            variant: "destructive",
+          });
+        }
+  
+        setLoading(false);
+      };
+      fetchAllData();
     }
-  }, [userId, token])
+  }, [userId, token]);
+
 
   const handleFollowToggle = () => {
     setIsFollowing(!isFollowing)
+    // Implement actual follow/unfollow logic here
+    toast({
+      title: "Feature Coming Soon",
+      description: "Follow/Unfollow functionality is not yet implemented.",
+    });
   }
+
+  const handleDeletePlaylist = async (playlistId: number) => {
+    if (!token) return;
+    if (window.confirm("Are you sure you want to delete this playlist?")) {
+      const result = await deletePlaylist(playlistId, token);
+      if (result.success) {
+        setUserPlaylists(prev => prev.filter(p => p.id !== playlistId));
+        toast({
+          title: "Success",
+          description: "Playlist deleted successfully.",
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: result.error || "Failed to delete playlist.",
+          variant: "destructive",
+        });
+      }
+    }
+  };
+
+  const handleTogglePublic = async (playlistId: number, isPublic: boolean) => {
+    if (!token) return;
+    const result = await updatePlaylist(playlistId, { is_public: isPublic }, token);
+    if (result.success) {
+      setUserPlaylists(prev => prev.map(p => p.id === playlistId ? { ...p, is_public: isPublic } : p));
+      toast({
+        title: "Success",
+        description: `Playlist set to ${isPublic ? 'public' : 'private'}.`,
+      });
+    } else {
+      toast({
+        title: "Error",
+        description: result.error || "Failed to update playlist visibility.",
+        variant: "destructive",
+      });
+    }
+  };
+
 
   if (loading) {
     return (
@@ -106,7 +181,7 @@ export default function UserProfilePage() {
   
   // Mocked stats until backend provides them
   const stats = {
-    playlists: profileData.playlists.length,
+    playlists: userPlaylists.length, // Use actual count
     followers: 0,
     following: 0,
   };
@@ -173,25 +248,69 @@ export default function UserProfilePage() {
             </div>
           </div>
 
-          {/* Public Playlists */}
-          <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-bold">Public Playlists</h2>
-              <Badge variant="secondary">{profileData.playlists.length} playlists</Badge>
-            </div>
-
-            {profileData.playlists.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {profileData.playlists.map((playlist) => (
-                  playlist ? <PlaylistCard key={playlist.id} playlist={playlist} /> : null
-                ))}
+          {/* Playlist Tabs */}
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger 
+                value="my-playlists"
+                className={cn(
+                  "gap-2 data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground data-[state=inactive]:hover:bg-foreground/5",
+                  "data-[state=active]:!bg-primary data-[state=active]:!text-primary-foreground"
+                )}
+              >
+                My Playlists ({userPlaylists.length})
+              </TabsTrigger>
+              <TabsTrigger 
+                value="liked-playlists"
+                className={cn(
+                  "gap-2 data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground data-[state=inactive]:hover:bg-foreground/5",
+                  "data-[state=active]:!bg-primary data-[state=active]:!text-primary-foreground"
+                )}
+              >
+                Liked Playlists ({likedPlaylists.length})
+              </TabsTrigger>
+            </TabsList>
+            <TabsContent value="my-playlists" className="mt-6">
+              <div className="space-y-6">
+                <h2 className="text-2xl font-bold">My Playlists</h2>
+                {userPlaylists.length > 0 ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {userPlaylists.map((playlist) => (
+                      playlist ? (
+                        <PlaylistCard 
+                          key={playlist.id} 
+                          playlist={playlist} 
+                          isOwner={isOwnProfile}
+                          onDelete={handleDeletePlaylist}
+                          onTogglePublic={handleTogglePublic}
+                        />
+                      ) : null
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <p>You haven't created any playlists yet.</p>
+                  </div>
+                )}
               </div>
-            ) : (
-              <div className="text-center py-12 text-muted-foreground">
-                <p>This user hasn't created any public playlists yet.</p>
+            </TabsContent>
+            <TabsContent value="liked-playlists" className="mt-6">
+              <div className="space-y-6">
+                <h2 className="text-2xl font-bold">Liked Playlists</h2>
+                {likedPlaylists.length > 0 ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {likedPlaylists.map((playlist) => (
+                      playlist ? <PlaylistCard key={playlist.id} playlist={playlist} /> : null
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <p>You haven't liked any playlists yet.</p>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+            </TabsContent>
+          </Tabs>
         </div>
       </div>
     </main>

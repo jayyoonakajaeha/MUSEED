@@ -9,7 +9,7 @@ from sqlalchemy.orm import sessionmaker
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from app.database import engine
-from app.models import Track
+from app import models
 
 # --- Configuration ---
 FMA_DATA_PATH = '/home/jay/MusicAI/fma/data'
@@ -74,8 +74,7 @@ def import_metadata():
 
     # Ensure all tables are created
     print("Creating database tables if they don't exist...")
-    from app.models import Base
-    Base.metadata.create_all(bind=engine)
+    models.Base.metadata.create_all(bind=engine)
     print("Tables created.")
 
     # Create a new session
@@ -83,7 +82,7 @@ def import_metadata():
     db_session = Session()
 
     try:
-        if db_session.query(Track).first() is not None:
+        if db_session.query(models.Track).first() is not None:
             print("The 'tracks' table is not empty. Aborting import.")
             return
 
@@ -136,7 +135,7 @@ def import_metadata():
                 except (ValueError, SyntaxError):
                     genre_toplevel = None
             
-            new_track = Track(
+            new_track = models.Track(
                 track_id=track_id,
                 title=str(title),
                 artist_name=str(artist_name),

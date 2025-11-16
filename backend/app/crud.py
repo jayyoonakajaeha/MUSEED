@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session, joinedload, subqueryload
 from sqlalchemy import func
 from . import models, schemas, security
-from typing import List
+from typing import List, Optional
 
 # --- User CRUD ---
 
@@ -18,6 +18,13 @@ def get_user_by_username(db: Session, username: str):
             subqueryload(models.Playlist.tracks).options(
                 joinedload(models.PlaylistTrack.track)
             )
+        ),
+        subqueryload(models.User.liked_playlists).options(
+            joinedload(models.Playlist.owner),
+            subqueryload(models.Playlist.tracks).options(
+                joinedload(models.PlaylistTrack.track)
+            ),
+            subqueryload(models.Playlist.liked_by) # Eager load who liked this playlist
         )
     ).filter(models.User.username == username).first()
 
@@ -81,8 +88,26 @@ def get_top_genre_for_user(db: Session, user_id: int):
 def get_playlist(db: Session, playlist_id: int):
     return db.query(models.Playlist).options(
         joinedload(models.Playlist.owner),
-        subqueryload(models.Playlist.tracks).joinedload(models.PlaylistTrack.track)
+        subqueryload(models.Playlist.tracks).joinedload(models.PlaylistTrack.track),
+        subqueryload(models.Playlist.liked_by) # Eager load who liked this playlist
     ).filter(models.Playlist.id == playlist_id).first()
+
+def get_user_playlists(db: Session, user_id: int):
+    return db.query(models.Playlist).options(
+        joinedload(models.Playlist.owner),
+        subqueryload(models.Playlist.tracks).joinedload(models.PlaylistTrack.track),
+        subqueryload(models.Playlist.liked_by)
+    ).filter(models.Playlist.owner_id == user_id).all()
+
+def get_liked_playlists(db: Session, user_id: int):
+    user = db.query(models.User).options(
+        subqueryload(models.User.liked_playlists).options(
+            joinedload(models.Playlist.owner),
+            subqueryload(models.Playlist.tracks).joinedload(models.PlaylistTrack.track),
+            subqueryload(models.Playlist.liked_by)
+        )
+    ).filter(models.User.id == user_id).first()
+    return user.liked_playlists if user else []
 
 def create_playlist(db: Session, name: str, owner_id: int, track_ids: List[int]):
     # Create the playlist entry
@@ -101,6 +126,55 @@ def create_playlist(db: Session, name: str, owner_id: int, track_ids: List[int])
     # Re-fetch the playlist with all relationships loaded for the response
     return get_playlist(db, db_playlist.id)
 
+def update_playlist(db: Session, playlist_id: int, playlist_update: schemas.PlaylistUpdate):
+    db_playlist = db.query(models.Playlist).filter(models.Playlist.id == playlist_id).first()
+    if not db_playlist:
+        return None
+    
+    update_data = playlist_update.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(db_playlist, key, value)
+    
+    db.add(db_playlist)
+    db.commit()
+    db.refresh(db_playlist)
+    return get_playlist(db, db_playlist.id)
+
+def delete_playlist(db: Session, playlist_id: int):
+    db_playlist = db.query(models.Playlist).filter(models.Playlist.id == playlist_id).first()
+    if db_playlist:
+        db.delete(db_playlist)
+        db.commit()
+        return True
+    return False
+
+def like_playlist(db: Session, playlist_id: int, user_id: int):
+    db_playlist = db.query(models.Playlist).filter(models.Playlist.id == playlist_id).first()
+    db_user = db.query(models.User).filter(models.User.id == user_id).first()
+
+    if not db_playlist or not db_user:
+        return None
+
+    # Check if already liked
+    if db_user not in db_playlist.liked_by:
+        db_playlist.liked_by.append(db_user)
+        db.commit()
+        db.refresh(db_playlist)
+    return get_playlist(db, db_playlist.id)
+
+def unlike_playlist(db: Session, playlist_id: int, user_id: int):
+    db_playlist = db.query(models.Playlist).filter(models.Playlist.id == playlist_id).first()
+    db_user = db.query(models.User).filter(models.User.id == user_id).first()
+
+    if not db_playlist or not db_user:
+        return None
+
+    # Check if liked
+    if db_user in db_playlist.liked_by:
+        db_playlist.liked_by.remove(db_user)
+        db.commit()
+        db.refresh(db_playlist)
+    return get_playlist(db, db_playlist.id)
 
 # --- Track CRUD ---
 

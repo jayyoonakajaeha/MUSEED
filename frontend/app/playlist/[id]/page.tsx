@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useAuth } from "@/context/AuthContext"
-import { getPlaylist } from "@/lib/api"
+import { getPlaylist, deletePlaylist, updatePlaylist, likePlaylist, unlikePlaylist } from "@/lib/api"
 import { useParams, useRouter } from "next/navigation"
 import { AudioPlayer } from "@/components/audio-player"
 import { Heart, Share2, Save, Music2, Edit2, Check, Trash2, Lock, Globe, Plus } from "lucide-react"
@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { MoreVertical } from "lucide-react"
 import Link from "next/link"
+import { toast } from "@/components/ui/use-toast"
 
 // Updated interfaces to match backend schema
 interface Track {
@@ -42,6 +43,8 @@ interface Playlist {
   created_at: string;
   owner: PlaylistOwner;
   tracks: Track[];
+  likes_count: number; // Added
+  liked_by_user: boolean; // Added
 }
 
 const getAlbumArtUrl = (url: string | null | undefined): string => {
@@ -61,7 +64,8 @@ export default function PlaylistPage() {
   const [error, setError] = useState<string | null>(null)
 
   const [currentTrackIndex, setCurrentTrackIndex] = useState(0)
-  const [isLiked, setIsLiked] = useState(false) // This will be replaced with real data later
+  const [likedState, setLikedState] = useState(false) // Replaced isLiked
+  const [currentLikeCount, setCurrentLikeCount] = useState(0) // New state for like count
   const [isSaved, setIsSaved] = useState(false) // This will be replaced with real data later
   const [isEditingTitle, setIsEditingTitle] = useState(false)
   
@@ -77,6 +81,8 @@ export default function PlaylistPage() {
         const result = await getPlaylist(playlistId, token)
         if (result.success) {
           setPlaylist(result.data)
+          setLikedState(result.data.liked_by_user)
+          setCurrentLikeCount(result.data.likes_count)
         } else {
           setError(result.error || "Failed to load playlist.")
         }
@@ -117,21 +123,100 @@ export default function PlaylistPage() {
     setCurrentTrackIndex(index)
   }
 
-  const handleSaveTitle = () => {
-    // TODO: Implement API call to update playlist title
+  const handleSaveTitle = async () => {
+    if (!token || !playlist) return;
+    // Assuming playlist.name holds the edited title
+    const result = await updatePlaylist(playlist.id, { name: playlist.name }, token);
+    if (result.success) {
+      setPlaylist(result.data);
+      toast({
+        title: "Success",
+        description: "Playlist title updated successfully.",
+      });
+    } else {
+      toast({
+        title: "Error",
+        description: result.error || "Failed to update playlist title.",
+        variant: "destructive",
+      });
+    }
     setIsEditingTitle(false)
   }
 
-  const handleDelete = () => {
-    // TODO: Implement API call to delete playlist
-    if (confirm("Are you sure you want to delete this playlist?")) {
-      router.push(`/user/${user?.username}`)
+  const handleDelete = async () => {
+    if (!token || !playlist) return;
+    if (window.confirm("Are you sure you want to delete this playlist? This action cannot be undone.")) {
+      const result = await deletePlaylist(playlist.id, token);
+      if (result.success) {
+        toast({
+          title: "Success",
+          description: "Playlist deleted successfully.",
+        });
+        router.push(`/user/${user?.username}`); // Redirect to user's profile after deletion
+      } else {
+        toast({
+          title: "Error",
+          description: result.error || "Failed to delete playlist.",
+          variant: "destructive",
+        });
+      }
     }
   }
 
-  const handleTogglePrivacy = () => {
-    // TODO: Implement API call to update playlist privacy
-    // setIsPublic(!isPublic) 
+  const handleTogglePrivacy = async () => {
+    if (!token || !playlist) return;
+    const newPrivacyStatus = !playlist.is_public;
+    const result = await updatePlaylist(playlist.id, { is_public: newPrivacyStatus }, token);
+    if (result.success) {
+      setPlaylist(result.data);
+      toast({
+        title: "Success",
+        description: `Playlist set to ${newPrivacyStatus ? 'public' : 'private'}.`,
+      });
+    } else {
+      toast({
+        title: "Error",
+        description: result.error || "Failed to update playlist privacy.",
+        variant: "destructive",
+      });
+    }
+  }
+
+  const handleLike = async () => {
+    if (!token || !playlist) {
+      toast({
+        title: "Login Required",
+        description: "You must be logged in to like playlists.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (likedState) {
+      const result = await unlikePlaylist(playlist.id, token);
+      if (result.success) {
+        setLikedState(false);
+        setCurrentLikeCount(prev => prev - 1);
+      } else {
+        toast({
+          title: "Error",
+          description: result.error || "Failed to unlike playlist.",
+          variant: "destructive",
+        });
+      }
+    } else {
+      const result = await likePlaylist(playlist.id, token);
+      if (result.success) {
+        setLikedState(true);
+        setCurrentLikeCount(prev => prev + 1);
+      } else {
+        toast({
+          title: "Error",
+          description: result.error || "Failed to like playlist.",
+          variant: "destructive",
+        });
+      }
+    }
   }
 
   const handleCreateFromTrack = (trackId: number) => {
@@ -152,7 +237,7 @@ export default function PlaylistPage() {
                 <input
                   type="text"
                   value={playlist.name} // Use state for editing
-                  // onChange={(e) => setPlaylist({...playlist, name: e.target.value})}
+                  onChange={(e) => setPlaylist(prev => prev ? { ...prev, name: e.target.value } : null)}
                   className="flex-1 text-4xl md:text-5xl font-bold bg-transparent border-b-2 border-primary focus:outline-none"
                   autoFocus
                 />
@@ -201,32 +286,17 @@ export default function PlaylistPage() {
           {/* Action Buttons */}
           <div className="flex flex-wrap items-center gap-3">
             <button
-              onClick={() => setIsLiked(!isLiked)}
+              onClick={handleLike}
               className={cn(
                 "flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all",
-                isLiked
+                likedState
                   ? "bg-primary text-primary-foreground"
                   : "bg-surface-elevated hover:bg-border border border-border",
               )}
             >
-              <Heart className={cn("h-5 w-5", isLiked && "fill-current")} />
-              {isLiked ? "Liked" : "Like"}
+              <Heart className={cn("h-5 w-5", likedState && "fill-current")} />
+              {likedState ? "Liked" : "Like"} ({currentLikeCount})
             </button>
-
-            {!isOwner && (
-              <button
-                onClick={() => setIsSaved(!isSaved)}
-                className={cn(
-                  "flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all",
-                  isSaved
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-surface-elevated hover:bg-border border border-border",
-                )}
-              >
-                <Save className={cn("h-5 w-5", isSaved && "fill-current")} />
-                {isSaved ? "Saved" : "Save"}
-              </button>
-            )}
 
             <button className="flex items-center gap-2 px-6 py-3 bg-surface-elevated hover:bg-border border border-border rounded-lg font-medium transition-all">
               <Share2 className="h-5 w-5" />

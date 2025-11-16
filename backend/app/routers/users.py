@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+from typing import List
 
 from .. import crud, schemas, models
 from ..dependencies import get_db, get_current_user
@@ -60,3 +61,33 @@ def update_user_profile(
             raise HTTPException(status_code=400, detail="Email already registered by another user.")
 
     return crud.update_user(db=db, db_user=db_user, user_in=user_in)
+
+@router.get("/{username}/playlists", response_model=List[schemas.Playlist])
+def get_user_created_playlists(
+    username: str,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    db_user = crud.get_user_by_username(db, username=username)
+    if db_user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    playlists = crud.get_user_playlists(db, user_id=db_user.id)
+    for playlist in playlists:
+        playlist.liked_by_user = current_user in playlist.liked_by
+    return playlists
+
+@router.get("/{username}/likes", response_model=List[schemas.Playlist])
+def get_user_liked_playlists(
+    username: str,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    db_user = crud.get_user_by_username(db, username=username)
+    if db_user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    liked_playlists = crud.get_liked_playlists(db, user_id=db_user.id)
+    for playlist in liked_playlists:
+        playlist.liked_by_user = current_user in playlist.liked_by
+    return liked_playlists
