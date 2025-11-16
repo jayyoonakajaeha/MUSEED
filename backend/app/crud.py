@@ -81,6 +81,14 @@ def unfollow_user(db: Session, follower: models.User, followed: models.User):
         db.commit()
     return follower
 
+def get_user_followers(db: Session, username: str):
+    user = db.query(models.User).options(joinedload(models.User.followers)).filter(models.User.username == username).first()
+    return user.followers if user else []
+
+def get_user_following(db: Session, username: str):
+    user = db.query(models.User).options(joinedload(models.User.following)).filter(models.User.username == username).first()
+    return user.following if user else []
+
 # --- Listening History CRUD ---
 
 def create_listening_history(db: Session, history: schemas.ListeningHistoryCreate, user_id: int):
@@ -106,6 +114,18 @@ def get_top_genre_for_user(db: Session, user_id: int):
         .first()
     )
     return top_genre_query
+
+def get_genre_distribution_for_user(db: Session, user_id: int):
+    return (
+        db.query(
+            models.ListeningHistory.genre,
+            func.count(models.ListeningHistory.id).label("count"),
+        )
+        .filter(models.ListeningHistory.user_id == user_id)
+        .group_by(models.ListeningHistory.genre)
+        .order_by(func.count(models.ListeningHistory.id).desc())
+        .all()
+    )
 
 # --- Playlist CRUD ---
 

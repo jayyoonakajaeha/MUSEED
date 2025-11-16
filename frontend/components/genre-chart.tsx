@@ -36,7 +36,9 @@ export function GenreChart({ data }: GenreChartProps) {
               backgroundColor: "hsl(var(--surface-elevated))",
               border: "1px solid hsl(var(--border))",
               borderRadius: "8px",
-              color: "hsl(var(--foreground))",
+            }}
+            itemStyle={{
+              color: "#FFFFFF",
             }}
           />
           <Legend

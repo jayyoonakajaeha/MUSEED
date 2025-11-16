@@ -28,7 +28,7 @@ export default function EditProfilePage() {
     if (user && token) {
       const fetchProfile = async () => {
         setLoading(true)
-        const result = await getUserProfile(user.sub, token)
+        const result = await getUserProfile(user.username, token)
         if (result.success) {
           setUsername(result.data.username)
           setEmail(result.data.email)
@@ -59,14 +59,14 @@ export default function EditProfilePage() {
       const updateData: { username?: string; email?: string; password?: string } = {}
       let usernameChanged = false;
       
-      if (username && username !== user.sub) {
+      if (username && username !== user.username) {
         updateData.username = username;
         usernameChanged = true;
       }
       if (email) updateData.email = email
       if (password) updateData.password = password
 
-      const result = await updateUserProfile(user.sub, token, updateData)
+      const result = await updateUserProfile(user.username, token, updateData)
       if (result.success) {
         if (usernameChanged) {
             alert("Username changed successfully! Please log in again with your new username.");
@@ -74,7 +74,7 @@ export default function EditProfilePage() {
             router.push("/login");
         } else {
             setSuccess("Profile updated successfully!")
-            setTimeout(() => router.push(`/user/${user.sub}`), 1500)
+            setTimeout(() => router.push(`/user/${user.username}`), 1500)
         }
       } else {
         setError(result.error || "Failed to update profile.")

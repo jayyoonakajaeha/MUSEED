@@ -10,6 +10,26 @@ router = APIRouter(
     tags=["users"]
 )
 
+def _get_profile_image_key(db: Session, db_user: models.User) -> str:
+    """Determine the profile image key based on user activity."""
+    top_genre_result = crud.get_top_genre_for_user(db, user_id=db_user.id)
+    if top_genre_result and top_genre_result.genre:
+        # Ensure the genre name matches a known image file, otherwise fallback
+        known_genres = [
+            "Blues", "Classical", "Country", "Electronic", "Experimental", 
+            "Folk", "Hip-Hop", "Instrumental", "International", "Jazz", 
+            "Old-Time / Historic", "Pop", "Rock", "Soul-RnB", "Spoken", 
+            "Easy Listening"
+        ]
+        if top_genre_result.genre in known_genres:
+            return top_genre_result.genre
+    
+    playlist_count = db.query(models.Playlist).filter(models.Playlist.owner_id == db_user.id).count()
+    if playlist_count > 0:
+        return "Default_Headphone"
+        
+    return "Default"
+
 def _populate_user_response(db_user: models.User, current_user: Optional[models.User]) -> schemas.User:
     """Helper function to populate the full User schema from an ORM object."""
     is_followed = False
@@ -108,6 +128,31 @@ def unfollow_user_endpoint(
     return _populate_user_response(updated_user, current_user)
 
 
+@router.get("/{username}/followers", response_model=List[schemas.UserForList])
+def get_followers(username: str, db: Session = Depends(get_db)):
+    followers_db = crud.get_user_followers(db, username=username)
+    followers_list = [
+        schemas.UserForList(
+            id=f.id,
+            username=f.username,
+            profile_image_key=_get_profile_image_key(db, f)
+        ) for f in followers_db
+    ]
+    return followers_list
+
+@router.get("/{username}/following", response_model=List[schemas.UserForList])
+def get_following(username: str, db: Session = Depends(get_db)):
+    following_db = crud.get_user_following(db, username=username)
+    following_list = [
+        schemas.UserForList(
+            id=f.id,
+            username=f.username,
+            profile_image_key=_get_profile_image_key(db, f)
+        ) for f in following_db
+    ]
+    return following_list
+
+
 @router.get("/{username}/stats", response_model=schemas.UserStats)
 def read_user_stats(username: str, db: Session = Depends(get_db)):
     db_user = crud.get_user_by_username(db, username=username)
@@ -117,6 +162,15 @@ def read_user_stats(username: str, db: Session = Depends(get_db)):
     top_genre_result = crud.get_top_genre_for_user(db, user_id=db_user.id)
     top_genre = top_genre_result.genre if top_genre_result else None
     return schemas.UserStats(top_genre=top_genre)
+
+@router.get("/{username}/genre-stats", response_model=List[schemas.GenreStat])
+def get_user_genre_stats(username: str, db: Session = Depends(get_db)):
+    db_user = crud.get_user_by_username(db, username=username)
+    if db_user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    genre_stats = crud.get_genre_distribution_for_user(db, user_id=db_user.id)
+    return genre_stats
 
 @router.put("/{username}", response_model=schemas.User)
 def update_user_profile(

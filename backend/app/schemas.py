@@ -72,6 +72,17 @@ class UserUpdate(BaseModel):
 class UserStats(BaseModel):
     top_genre: Optional[str] = None
 
+# Schema for genre distribution
+class GenreStat(BaseModel):
+    genre: str
+    count: int
+
+# Schema for simplified user lists (followers/following)
+class UserForList(BaseModel):
+    id: int
+    username: str
+    profile_image_key: str
+
 # Schema for the owner field within a Playlist
 class PlaylistOwner(BaseModel):
     id: int
