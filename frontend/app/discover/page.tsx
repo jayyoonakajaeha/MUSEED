@@ -5,61 +5,67 @@ import { Search, TrendingUp } from "lucide-react"
 import { PlaylistCard } from "@/components/playlist-card"
 import Link from "next/link"
 
-// Mock data for trending playlists
+// Mock data for trending playlists - UPDATED to match the PlaylistCard's expected prop structure
 const trendingPlaylists = [
   {
-    id: "1",
-    title: "Midnight Vibes",
-    creator: "DJ Luna",
-    trackCount: 24,
-    likes: 1247,
+    id: 101,
+    name: "Midnight Vibes",
+    owner: { id: 1, username: "DJ Luna" },
+    tracks: Array(24).fill({}),
+    likes_count: 1247,
+    liked_by_user: false,
+    is_public: true,
     coverImage: "/dark-purple-music-waves.jpg",
-    isLiked: false,
   },
   {
-    id: "2",
-    title: "Electronic Dreams",
-    creator: "SynthWave",
-    trackCount: 18,
-    likes: 892,
+    id: 102,
+    name: "Electronic Dreams",
+    owner: { id: 2, username: "SynthWave" },
+    tracks: Array(18).fill({}),
+    likes_count: 892,
+    liked_by_user: true,
+    is_public: true,
     coverImage: "/neon-electronic-music.jpg",
-    isLiked: true,
   },
   {
-    id: "3",
-    title: "Acoustic Sessions",
-    creator: "Sarah Mitchell",
-    trackCount: 15,
-    likes: 654,
+    id: 103,
+    name: "Acoustic Sessions",
+    owner: { id: 3, username: "Sarah Mitchell" },
+    tracks: Array(15).fill({}),
+    likes_count: 654,
+    liked_by_user: false,
+    is_public: true,
     coverImage: "/acoustic-guitar-warm.jpg",
-    isLiked: false,
   },
   {
-    id: "4",
-    title: "Lo-fi Study Beats",
-    creator: "Chill Collective",
-    trackCount: 32,
-    likes: 2103,
+    id: 104,
+    name: "Lo-fi Study Beats",
+    owner: { id: 4, username: "Chill Collective" },
+    tracks: Array(32).fill({}),
+    likes_count: 2103,
+    liked_by_user: false,
+    is_public: true,
     coverImage: "/lofi-aesthetic-purple.jpg",
-    isLiked: false,
   },
   {
-    id: "5",
-    title: "Jazz After Dark",
-    creator: "Miles Ahead",
-    trackCount: 21,
-    likes: 743,
+    id: 105,
+    name: "Jazz After Dark",
+    owner: { id: 5, username: "Miles Ahead" },
+    tracks: Array(21).fill({}),
+    likes_count: 743,
+    liked_by_user: true,
+    is_public: true,
     coverImage: "/jazz-saxophone-dark.jpg",
-    isLiked: true,
   },
   {
-    id: "6",
-    title: "Indie Rock Essentials",
-    creator: "The Strummers",
-    trackCount: 27,
-    likes: 1456,
+    id: 106,
+    name: "Indie Rock Essentials",
+    owner: { id: 6, username: "The Strummers" },
+    tracks: Array(27).fill({}),
+    likes_count: 1456,
+    liked_by_user: false,
+    is_public: true,
     coverImage: "/indie-rock-concert.png",
-    isLiked: false,
   },
 ]
 
@@ -68,8 +74,8 @@ const searchPlaylists = (query: string) => {
   if (!query.trim()) return []
   return trendingPlaylists.filter(
     (playlist) =>
-      playlist.title.toLowerCase().includes(query.toLowerCase()) ||
-      playlist.creator.toLowerCase().includes(query.toLowerCase()),
+      playlist.name.toLowerCase().includes(query.toLowerCase()) ||
+      playlist.owner.username.toLowerCase().includes(query.toLowerCase()),
   )
 }
 
@@ -121,9 +127,7 @@ export default function DiscoverPage() {
             {searchResults.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {searchResults.map((playlist) => (
-                  <Link key={playlist.id} href={`/playlist/${playlist.id}`}>
-                    <PlaylistCard {...playlist} />
-                  </Link>
+                  <PlaylistCard key={playlist.id} playlist={playlist} />
                 ))}
               </div>
             ) : (
@@ -145,9 +149,7 @@ export default function DiscoverPage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {trendingPlaylists.map((playlist) => (
-              <Link key={playlist.id} href={`/playlist/${playlist.id}`}>
-                <PlaylistCard {...playlist} />
-              </Link>
+              <PlaylistCard key={playlist.id} playlist={playlist} />
             ))}
           </div>
         </div>
