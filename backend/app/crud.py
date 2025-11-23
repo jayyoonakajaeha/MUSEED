@@ -2,6 +2,7 @@ from sqlalchemy.orm import Session, joinedload, subqueryload
 from sqlalchemy import func, desc, or_
 from . import models, schemas, security
 from typing import List, Optional
+from datetime import datetime, timedelta, timezone
 
 # --- User CRUD ---
 
@@ -37,13 +38,23 @@ def get_users(db: Session, skip: int = 0, limit: int = 100):
 
 def search_users(db: Session, query: str, skip: int = 0, limit: int = 100):
     search_query = f"%{query}%"
+    # Search by username (ID) or nickname
     return db.query(models.User).filter(
-        models.User.username.ilike(search_query)
+        or_(
+            models.User.username.ilike(search_query),
+            models.User.nickname.ilike(search_query)
+        )
     ).offset(skip).limit(limit).all()
 
 def create_user(db: Session, user: schemas.UserCreate):
     hashed_password = security.get_password_hash(user.password)
-    db_user = models.User(email=user.email, username=user.username, hashed_password=hashed_password)
+    # Create user with username (ID) and nickname
+    db_user = models.User(
+        username=user.username, 
+        nickname=user.nickname,
+        email=user.email, # Optional
+        hashed_password=hashed_password
+    )
     db.add(db_user)
     db.commit()
     db.refresh(db_user)
@@ -61,6 +72,9 @@ def update_user(db: Session, db_user: models.User, user_in: schemas.UserUpdate):
 
     if "username" in update_data and update_data["username"]:
         db_user.username = update_data["username"]
+
+    if "nickname" in update_data and update_data["nickname"]:
+        db_user.nickname = update_data["nickname"]
 
     db.add(db_user)
     db.commit()
@@ -142,6 +156,64 @@ def get_public_playlists(db: Session, skip: int = 0, limit: int = 20):
         subqueryload(models.Playlist.tracks).joinedload(models.PlaylistTrack.track),
         subqueryload(models.Playlist.liked_by)
     ).filter(models.Playlist.is_public == True).order_by(desc(models.Playlist.created_at)).offset(skip).limit(limit).all()
+
+def get_trending_playlists(db: Session, limit: int = 10):
+    """
+    Fetches playlists with the most likes in the last 24 hours.
+    Falls back to recent public playlists if not enough trending data.
+    """
+    threshold = datetime.now(timezone.utc) - timedelta(hours=24)
+
+    # Subquery to count likes per playlist in the last 24h
+    stmt = (
+        db.query(
+            models.playlist_likes.c.playlist_id,
+            func.count('*').label('like_count')
+        )
+        .filter(models.playlist_likes.c.liked_at >= threshold)
+        .group_by(models.playlist_likes.c.playlist_id)
+        .order_by(desc('like_count'))
+        .limit(limit)
+        .subquery()
+    )
+
+    # Join with Playlist model to get full objects
+    trending_playlists = (
+        db.query(models.Playlist)
+        .join(stmt, models.Playlist.id == stmt.c.playlist_id)
+        .options(
+            joinedload(models.Playlist.owner),
+            subqueryload(models.Playlist.tracks).joinedload(models.PlaylistTrack.track),
+            subqueryload(models.Playlist.liked_by)
+        )
+        .filter(models.Playlist.is_public == True) 
+        .order_by(stmt.c.like_count.desc())
+        .all()
+    )
+
+    # If we don't have enough trending playlists, fill with recent public ones
+    if len(trending_playlists) < limit:
+        needed = limit - len(trending_playlists)
+        existing_ids = [p.id for p in trending_playlists]
+        
+        fallback_playlists = (
+            db.query(models.Playlist)
+            .options(
+                joinedload(models.Playlist.owner),
+                subqueryload(models.Playlist.tracks).joinedload(models.PlaylistTrack.track),
+                subqueryload(models.Playlist.liked_by)
+            )
+            .filter(
+                models.Playlist.is_public == True,
+                models.Playlist.id.notin_(existing_ids)
+            )
+            .order_by(desc(models.Playlist.created_at))
+            .limit(needed)
+            .all()
+        )
+        trending_playlists.extend(fallback_playlists)
+
+    return trending_playlists
 
 def search_playlists(db: Session, query: str, skip: int = 0, limit: int = 10):
     search_query = f"%{query}%"

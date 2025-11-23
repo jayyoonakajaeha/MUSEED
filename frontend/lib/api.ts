@@ -29,7 +29,8 @@ export async function getBackendStatus() {
   return apiFetch(`${API_BASE_URL}/api/status`);
 }
 
-export async function registerUser(userData: any) {
+export async function registerUser(userData: { username: string; nickname: string; password: string }) {
+  // email is no longer required for registration
   return apiFetch(`${API_BASE_URL}/api/auth/signup/`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -175,6 +176,12 @@ export async function getUserLikedPlaylists(username: string, token: string) {
 
 export async function getDiscoverPlaylists(token: string) {
   return apiFetch(`${API_BASE_URL}/api/playlists/discover`, {
+    headers: { 'Authorization': `Bearer ${token}` },
+  });
+}
+
+export async function getTrendingPlaylists(token: string) {
+  return apiFetch(`${API_BASE_URL}/api/playlists/trending`, {
     headers: { 'Authorization': `Bearer ${token}` },
   });
 }

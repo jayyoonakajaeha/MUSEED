@@ -25,6 +25,7 @@ interface PlayerContextType {
   setVolume: (volume: number) => void;
   toggleMute: () => void;
   setIsPlaying: (isPlaying: boolean) => void;
+  resetPlayer: () => void; // Added resetPlayer
 }
 
 const PlayerContext = createContext<PlayerContextType | undefined>(undefined);
@@ -36,6 +37,16 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const [volume, setVolumeState] = useState(0.7);
   const [isMuted, setIsMuted] = useState(false);
   const [currentIndex, setCurrentIndex] = useState<number>(-1);
+
+  // Reset function
+  const resetPlayer = useCallback(() => {
+    setCurrentTrack(null);
+    setPlaylist([]);
+    setIsPlaying(false);
+    setCurrentIndex(-1);
+    // volume and isMuted can persist or be reset too, depending on UX choice
+    // For now, let's keep them as user preferences
+  }, []);
 
   const playTrack = useCallback((track: Track) => {
     setCurrentTrack(track);
@@ -111,7 +122,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       previousTrack,
       setVolume,
       toggleMute,
-      setIsPlaying
+      setIsPlaying,
+      resetPlayer // Included resetPlayer
     }}>
       {children}
     </PlayerContext.Provider>

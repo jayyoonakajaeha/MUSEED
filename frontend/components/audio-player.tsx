@@ -207,7 +207,7 @@ export function AudioPlayer() {
                 <ListMusic className="h-5 w-5" />
               </button>
             </SheetTrigger>
-            <SheetContent className="w-[400px] sm:w-[540px]">
+            <SheetContent className="w-[400px] sm:w-[540px] border-l border-primary">
               <SheetHeader className="mb-4">
                 <SheetTitle>Queue</SheetTitle>
               </SheetHeader>

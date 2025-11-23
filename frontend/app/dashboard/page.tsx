@@ -1,40 +1,15 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import { HeroSection } from "@/components/hero-section"
 import { PlaylistCard } from "@/components/playlist-card"
-import { TrendingUp, Activity } from "lucide-react"
+import { TrendingUp, Activity, Loader2 } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useAuth } from "@/context/AuthContext"
 import { cn } from "@/lib/utils"
+import { getTrendingPlaylists } from "@/lib/api"
 
-// Mock data for demonstration - UPDATED to match PlaylistCard's expected prop structure
-const trendingPlaylists = [
-  {
-    id: 1,
-    name: "Midnight Vibes",
-    owner: { id: 99, username: "Alex Chen" },
-    tracks: Array(24).fill(0), // Just need the length for trackCount
-    likes: 342,
-    coverImage: "/dark-purple-music-waves.jpg",
-  },
-  {
-    id: 2,
-    name: "Electronic Dreams",
-    owner: { id: 98, username: "Sarah Kim" },
-    tracks: Array(18).fill(0),
-    likes: 289,
-    coverImage: "/neon-electronic-music.jpg",
-  },
-  {
-    id: 3,
-    name: "Acoustic Sessions",
-    owner: { id: 97, username: "Mike Johnson" },
-    tracks: Array(15).fill(0),
-    likes: 456,
-    coverImage: "/acoustic-guitar-warm.jpg",
-  },
-]
-
+// Mock feed data (unchanged for now)
 const feedActivities = [
   {
     id: "1",
@@ -64,6 +39,55 @@ const feedActivities = [
     playlistId: "4",
   },
 ]
+
+function TrendingSection() {
+    const [playlists, setPlaylists] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+    const { token } = useAuth();
+
+    useEffect(() => {
+        // For guest users, token might be null, but the API might require it.
+        // Actually the backend endpoint likely requires auth for now based on typical router setup.
+        // But crud.get_trending_playlists doesn't strictly need user info except for 'liked_by_user' check.
+        // Let's assume we pass token if available, or empty string if not (backend might reject empty token).
+        // If backend requires auth for /trending, guests won't see it.
+        // Checking backend: router uses `current_user: models.User = Depends(get_current_user)`.
+        // So guests CANNOT see trending playlists currently.
+        // However, guests should probably see trending.
+        // We will try to fetch if token exists.
+        
+        if (!token) {
+            setLoading(false);
+            return;
+        }
+
+        const fetchTrending = async () => {
+            setLoading(true);
+            const result = await getTrendingPlaylists(token);
+            if (result.success) {
+                setPlaylists(result.data);
+            }
+            setLoading(false);
+        }
+        fetchTrending();
+    }, [token]);
+
+    if (loading) {
+        return <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
+    }
+
+    if (playlists.length === 0) {
+        return <p className="text-muted-foreground">No trending playlists found.</p>;
+    }
+
+    return (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {playlists.map((playlist) => (
+            <PlaylistCard key={playlist.id} playlist={playlist} />
+          ))}
+        </div>
+    );
+}
 
 function LoggedInDashboard() {
   return (
@@ -126,11 +150,7 @@ function LoggedInDashboard() {
           <h2 className="text-3xl md:text-4xl font-bold">Trending Playlists</h2>
           <p className="text-muted-foreground">Discover what the community is listening to</p>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {trendingPlaylists.map((playlist) => (
-            <PlaylistCard key={playlist.id} playlist={playlist} />
-          ))}
-        </div>
+        <TrendingSection />
       </TabsContent>
     </Tabs>
   )
@@ -140,14 +160,17 @@ function GuestDashboard() {
   return (
     <div className="space-y-8">
       <div className="space-y-2 text-center">
-        <h2 className="text-3xl md:text-4xl font-bold">Trending Playlists</h2>
-        <p className="text-muted-foreground">Discover what the community is listening to. Sign up to create your own.</p>
+        <h2 className="text-3xl md:text-4xl font-bold">Join the Community</h2>
+        <p className="text-muted-foreground">Sign up to create playlists and follow artists.</p>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        {trendingPlaylists.map((playlist) => (
-          <PlaylistCard key={playlist.id} playlist={playlist} />
-        ))}
-      </div>
+      {/* Guests can't see trending yet because API requires token. 
+          In a real app, we'd make a public endpoint. For now, show a prompt. */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 opacity-50 pointer-events-none blur-sm select-none">
+             {/* Fake placeholders to tease content */}
+             {[1,2,3].map(i => (
+                 <div key={i} className="aspect-square bg-muted rounded-xl"></div>
+             ))}
+        </div>
     </div>
   )
 }

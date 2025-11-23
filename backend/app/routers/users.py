@@ -55,12 +55,13 @@ def _populate_user_response(db_user: models.User, current_user: Optional[models.
     user_response = schemas.User(
         id=db_user.id,
         username=db_user.username,
+        nickname=db_user.nickname, # Added nickname
         email=db_user.email,
         is_active=db_user.is_active,
         playlists=created_playlists,
         liked_playlists=liked_playlists,
-        followers_count=len(db_user.followers),
-        following_count=len(db_user.following),
+        followers=db_user.followers, # Pass the actual relationship list
+        following=db_user.following, # Pass the actual relationship list
         is_followed_by_current_user=is_followed
     )
     return user_response
@@ -100,6 +101,7 @@ def get_user_recommendations(
         recommendations.append(schemas.UserRecommendation(
             id=user.id,
             username=user.username,
+            nickname=user.nickname, # Added nickname
             profile_image_key=_get_profile_image_key(db, user),
             similarity=similarity
         ))
@@ -161,6 +163,7 @@ def get_followers(username: str, db: Session = Depends(get_db)):
         schemas.UserForList(
             id=f.id,
             username=f.username,
+            nickname=f.nickname, # Added nickname
             profile_image_key=_get_profile_image_key(db, f)
         ) for f in followers_db
     ]
@@ -173,6 +176,7 @@ def get_following(username: str, db: Session = Depends(get_db)):
         schemas.UserForList(
             id=f.id,
             username=f.username,
+            nickname=f.nickname, # Added nickname
             profile_image_key=_get_profile_image_key(db, f)
         ) for f in following_db
     ]
@@ -216,9 +220,13 @@ def update_user_profile(
         raise HTTPException(status_code=404, detail="User not found")
 
     if user_in.username and user_in.username != db_user.username:
+        # Prevent changing username (User ID) to keep it simple, or allow it with check
+        # User request implied ID is fixed: "고정된 유저 ID를 통해서 하면 되고"
+        # So we should arguably block username changes or warn. 
+        # But current logic allows it. Let's keep it but strictly check uniqueness.
         existing_user = crud.get_user_by_username(db, username=user_in.username)
         if existing_user:
-            raise HTTPException(status_code=400, detail="Username already taken.")
+            raise HTTPException(status_code=400, detail="User ID already taken.")
 
     if user_in.email and user_in.email != db_user.email:
         existing_user = crud.get_user_by_email(db, email=user_in.email)

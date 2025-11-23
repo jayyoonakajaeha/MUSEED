@@ -5,7 +5,7 @@ import { Search, TrendingUp, Loader2, Music, ListMusic, Sparkles } from "lucide-
 import { PlaylistCard } from "@/components/playlist-card"
 import { useAuth } from "@/context/AuthContext"
 import { usePlayer } from "@/context/PlayerContext"
-import { getDiscoverPlaylists, searchTracks, searchUsers, searchPlaylists, getRecommendedUsers } from "@/lib/api"
+import { getDiscoverPlaylists, searchTracks, searchUsers, searchPlaylists, getRecommendedUsers, getTrendingPlaylists } from "@/lib/api"
 import { toast } from "@/components/ui/use-toast"
 import { useDebounce } from "@/hooks/use-debounce"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -112,6 +112,7 @@ export default function DiscoverPage() {
   
   // State for discover
   const [discoverPlaylists, setDiscoverPlaylists] = useState<Playlist[]>([]);
+  const [trendingPlaylists, setTrendingPlaylists] = useState<Playlist[]>([]); // Added trending state
   const [recommendedUsers, setRecommendedUsers] = useState<RecommendedUser[]>([]);
   const [discoverLoading, setDiscoverLoading] = useState(true);
   const [discoverError, setDiscoverError] = useState<string | null>(null);
@@ -129,8 +130,9 @@ export default function DiscoverPage() {
         setDiscoverLoading(true);
         setDiscoverError(null);
         
-        const [playlistResult, usersResult] = await Promise.all([
+        const [playlistResult, trendingResult, usersResult] = await Promise.all([
             getDiscoverPlaylists(token),
+            getTrendingPlaylists(token), // Fetch trending
             getRecommendedUsers(token)
         ]);
 
@@ -138,6 +140,10 @@ export default function DiscoverPage() {
           setDiscoverPlaylists(playlistResult.data);
         } else {
           setDiscoverError(playlistResult.error || "Failed to load playlists.");
+        }
+
+        if (trendingResult.success) {
+            setTrendingPlaylists(trendingResult.data);
         }
 
         if (usersResult.success) {
@@ -155,7 +161,7 @@ export default function DiscoverPage() {
 
   // Effect for handling search
   useEffect(() => {
-    if (!token || !debouncedSearchQuery) {
+    if (!token || !debouncedSearchQuery || debouncedSearchQuery.length < 2) {
       setSearchResults({ tracks: [], playlists: [], users: [] });
       return;
     }
@@ -310,6 +316,21 @@ export default function DiscoverPage() {
                         ))}
                         </div>
                     </div>
+                )}
+
+                {/* Trending Playlists Section */}
+                {trendingPlaylists.length > 0 && (
+                  <div>
+                    <div className="flex items-center gap-2 mb-6">
+                      <TrendingUp className="h-5 w-5 text-primary" />
+                      <h2 className="text-2xl font-bold">Trending Now</h2>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                      {trendingPlaylists.map((playlist) => (
+                        <PlaylistCard key={playlist.id} playlist={playlist} />
+                      ))}
+                    </div>
+                  </div>
                 )}
 
                 {/* Recently Added Playlists Section */}

@@ -21,6 +21,7 @@ interface Playlist {
   owner: {
     id: number;
     username: string;
+    nickname?: string;
   };
   owner_username: string; // Added for convenience
   tracks: any[]; // We just need the count
@@ -50,7 +51,8 @@ export function PlaylistCard({ playlist, isOwner = false, onDelete, onTogglePubl
     coverImage, 
   } = playlist;
   
-  const creator = owner.username;
+  // Use nickname if available, otherwise fallback to username
+  const creator = owner.nickname || owner.username;
   const creatorUsername = owner.username;
   const trackCount = tracks.length;
 

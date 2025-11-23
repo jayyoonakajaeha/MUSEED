@@ -59,13 +59,15 @@ class PlaylistTrack(PlaylistTrackBase):
 # --- User Schemas ---
 class UserBase(BaseModel):
     username: str
-    email: EmailStr
+    nickname: str
+    email: Optional[str] = None # Changed from EmailStr to str, and made default None
 
 class UserCreate(UserBase):
     password: str
 
 class UserUpdate(BaseModel):
-    username: Optional[str] = None
+    username: Optional[str] = None # ID usually shouldn't change, but keeping it optional
+    nickname: Optional[str] = None
     email: Optional[EmailStr] = None
     password: Optional[str] = None
 
@@ -81,6 +83,7 @@ class GenreStat(BaseModel):
 class UserForList(BaseModel):
     id: int
     username: str
+    nickname: str # Added nickname
     profile_image_key: str
 
 # Schema for User Recommendation
@@ -91,6 +94,7 @@ class UserRecommendation(UserForList):
 class PlaylistOwner(BaseModel):
     id: int
     username: str
+    nickname: str # Added nickname
 
     class Config:
         from_attributes = True
@@ -154,8 +158,20 @@ class User(UserBase):
     
     # Fields for follow feature
     is_followed_by_current_user: bool = False # Set dynamically
-    followers_count: int
-    following_count: int
+    
+    # Relationship fields needed for computation
+    followers: List[Any] = Field(default=[], exclude=True) 
+    following: List[Any] = Field(default=[], exclude=True)
+
+    @computed_field
+    @property
+    def followers_count(self) -> int:
+        return len(self.followers)
+
+    @computed_field
+    @property
+    def following_count(self) -> int:
+        return len(self.following)
 
     class Config:
         from_attributes = True

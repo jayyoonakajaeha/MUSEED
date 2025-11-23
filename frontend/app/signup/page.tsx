@@ -15,7 +15,7 @@ import { registerUser } from "@/lib/api"
 export default function SignupPage() {
   const router = useRouter()
   const [username, setUsername] = useState("")
-  const [email, setEmail] = useState("")
+  const [nickname, setNickname] = useState("")
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
   const [error, setError] = useState("")
@@ -31,7 +31,8 @@ export default function SignupPage() {
     }
 
     setLoading(true)
-    const result = await registerUser({ username, email, password })
+    // Changed: Removed email, added nickname
+    const result = await registerUser({ username, nickname, password })
     setLoading(false)
 
     if (result.success) {
@@ -60,24 +61,24 @@ export default function SignupPage() {
         <CardContent>
           <form onSubmit={handleSignup} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="username">Username</Label>
+              <Label htmlFor="username">User ID</Label>
               <Input
                 id="username"
                 type="text"
-                placeholder="your_username"
+                placeholder="Unique User ID"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 required
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="nickname">Nickname</Label>
               <Input
-                id="email"
-                type="email"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                id="nickname"
+                type="text"
+                placeholder="Display Name"
+                value={nickname}
+                onChange={(e) => setNickname(e.target.value)}
                 required
               />
             </div>

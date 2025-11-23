@@ -104,6 +104,20 @@ def get_discover_playlists(
         playlist.liked_by_user = current_user in playlist.liked_by
     return playlists
 
+@router.get("/trending", response_model=List[schemas.Playlist])
+def get_trending_playlists(
+    limit: int = 10,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """
+    Get trending playlists (most likes in last 24h).
+    """
+    playlists = crud.get_trending_playlists(db, limit=limit)
+    for playlist in playlists:
+        playlist.liked_by_user = current_user in playlist.liked_by
+    return playlists
+
 @router.get("/search", response_model=List[schemas.Playlist])
 def search_for_playlists(
     q: Optional[str] = Query(None, min_length=2),

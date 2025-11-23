@@ -15,6 +15,7 @@ export default function EditProfilePage() {
   const router = useRouter()
   
   const [username, setUsername] = useState("")
+  const [nickname, setNickname] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
@@ -31,14 +32,15 @@ export default function EditProfilePage() {
         const result = await getUserProfile(user.username, token)
         if (result.success) {
           setUsername(result.data.username)
-          setEmail(result.data.email)
+          setNickname(result.data.nickname || result.data.username) // Fallback
+          setEmail(result.data.email || "")
         } else {
           setError("Failed to load user data.")
         }
         setLoading(false)
       }
       fetchProfile()
-    } else if (token === null) { // Only run if token is explicitly null (not undefined)
+    } else if (token === null) { 
         router.push("/login")
     }
   }, [user, token, router])
@@ -56,26 +58,16 @@ export default function EditProfilePage() {
     }
 
     if (user && token) {
-      const updateData: { username?: string; email?: string; password?: string } = {}
-      let usernameChanged = false;
+      const updateData: { nickname?: string; email?: string; password?: string } = {}
       
-      if (username && username !== user.username) {
-        updateData.username = username;
-        usernameChanged = true;
-      }
+      if (nickname) updateData.nickname = nickname
       if (email) updateData.email = email
       if (password) updateData.password = password
 
       const result = await updateUserProfile(user.username, token, updateData)
       if (result.success) {
-        if (usernameChanged) {
-            alert("Username changed successfully! Please log in again with your new username.");
-            logout();
-            router.push("/login");
-        } else {
-            setSuccess("Profile updated successfully!")
-            setTimeout(() => router.push(`/user/${user.username}`), 1500)
-        }
+        setSuccess("Profile updated successfully!")
+        setTimeout(() => router.push(`/user/${user.username}`), 1500)
       } else {
         setError(result.error || "Failed to update profile.")
       }
@@ -97,28 +89,38 @@ export default function EditProfilePage() {
         <Card>
           <CardHeader>
             <CardTitle>Edit Profile</CardTitle>
-            <CardDescription>Update your account details. Leave password fields blank to keep it unchanged.</CardDescription>
+            <CardDescription>Update your profile. User ID cannot be changed.</CardDescription>
           </CardHeader>
           <form onSubmit={handleSubmit}>
             <CardContent className="space-y-6">
               <div className="space-y-2">
-                <Label htmlFor="username">Username</Label>
+                <Label htmlFor="username">User ID (Immutable)</Label>
                 <Input
                   id="username"
                   type="text"
                   value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  required
+                  disabled
+                  className="bg-muted text-muted-foreground"
                 />
               </div>
               <div className="space-y-2">
+                <Label htmlFor="nickname">Nickname (Display Name)</Label>
+                <Input
+                  id="nickname"
+                  type="text"
+                  value={nickname}
+                  onChange={(e) => setNickname(e.target.value)}
+                  required
+                />
+              </div>
+              {/* Email is optional/hidden, but keeping it if needed later */}
+              <div className="space-y-2 hidden"> 
                 <Label htmlFor="email">Email</Label>
                 <Input
                   id="email"
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  required
                 />
               </div>
               <div className="space-y-2">

@@ -7,7 +7,8 @@ from .database import Base
 playlist_likes = Table(
     'playlist_likes', Base.metadata,
     Column('user_id', Integer, ForeignKey('users.id'), primary_key=True),
-    Column('playlist_id', Integer, ForeignKey('playlists.id'), primary_key=True)
+    Column('playlist_id', Integer, ForeignKey('playlists.id'), primary_key=True),
+    Column('liked_at', DateTime(timezone=True), server_default=func.now())
 )
 
 # Association table for User follows
@@ -21,8 +22,9 @@ class User(Base):
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, index=True)
-    username = Column(String, unique=True, index=True, nullable=False)
-    email = Column(String, unique=True, index=True, nullable=False)
+    username = Column(String, unique=True, index=True, nullable=False) # This is the User ID
+    nickname = Column(String, index=True, nullable=False) # This is the Display Name
+    email = Column(String, unique=True, index=True, nullable=True) # Made nullable
     hashed_password = Column(String, nullable=False)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

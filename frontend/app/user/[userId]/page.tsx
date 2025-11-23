@@ -18,7 +18,8 @@ import { cn } from "@/lib/utils"
 // Define interfaces for the data structures
 interface UserProfile {
   id: number;
-  username: string;
+  username: string; // User ID
+  nickname: string; // Display Name
   email: string;
   playlists: any[];
   liked_playlists: any[];
@@ -33,6 +34,7 @@ interface Playlist {
   owner: {
     id: number;
     username: string;
+    nickname?: string;
   };
   tracks: any[];
   is_public: boolean;
@@ -298,7 +300,7 @@ export default function UserProfilePage() {
           <div className="space-y-8">
             <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
               <Avatar className="h-32 w-32 border-4 border-primary/20">
-                <AvatarImage src={profileImage} alt={profileUser.username} className="object-contain" />
+                <AvatarImage src={profileImage} alt={profileUser.nickname || profileUser.username} className="object-contain" />
                 <AvatarFallback className="text-4xl bg-primary/10 text-primary">
                   {profileUser.username.substring(0, 2).toUpperCase()}
                 </AvatarFallback>
@@ -306,7 +308,8 @@ export default function UserProfilePage() {
 
               <div className="flex-1 space-y-4">
                 <div>
-                  <h1 className="text-4xl font-bold">{profileUser.username}</h1>
+                  {/* Display Nickname primarily, User ID secondarily */}
+                  <h1 className="text-4xl font-bold">{profileUser.nickname}</h1>
                   <p className="text-muted-foreground">@{profileUser.username}</p>
                 </div>
 
