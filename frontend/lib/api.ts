@@ -239,3 +239,9 @@ export async function getRecommendedUsers(token: string) {
     headers: { 'Authorization': `Bearer ${token}` },
   });
 }
+
+export async function getUserFeed(token: string) {
+  return apiFetch(`${API_BASE_URL}/api/users/feed`, {
+    headers: { 'Authorization': `Bearer ${token}` },
+  });
+}

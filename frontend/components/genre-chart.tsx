@@ -14,16 +14,16 @@ interface GenreChartProps {
 
 export function GenreChart({ data }: GenreChartProps) {
   return (
-    <div className="w-full h-80">
+    <div className="w-full h-full min-h-[300px]">
       <ResponsiveContainer width="100%" height="100%">
         <PieChart>
           <Pie
             data={data}
             cx="50%"
-            cy="50%"
+            cy="45%" // Balanced vertical position
             labelLine={false}
-            label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-            outerRadius={100}
+            label={({ name, percent }) => `${(percent * 100).toFixed(0)}%`}
+            outerRadius={70} 
             fill="#8884d8"
             dataKey="value"
           >
@@ -42,8 +42,12 @@ export function GenreChart({ data }: GenreChartProps) {
             }}
           />
           <Legend
+            verticalAlign="bottom"
+            iconType="circle"
             wrapperStyle={{
-              color: "hsl(var(--muted-foreground))",
+              fontSize: '12px',
+              paddingTop: '0px', // Minimized spacing
+              bottom: '5px'
             }}
           />
         </PieChart>

@@ -1,7 +1,8 @@
-from sqlalchemy import Boolean, Column, Integer, String, DateTime, ForeignKey, Table
+from sqlalchemy import Boolean, Column, Integer, String, DateTime, ForeignKey, Table, Enum
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from .database import Base
+import enum
 
 # Association table for Playlist likes
 playlist_likes = Table(
@@ -18,13 +19,18 @@ followers_assoc = Table(
     Column('followed_id', Integer, ForeignKey('users.id'), primary_key=True)
 )
 
+class ActivityType(str, enum.Enum):
+    CREATE_PLAYLIST = "created a new playlist"
+    LIKE_PLAYLIST = "liked"
+    FOLLOW_USER = "started following"
+
 class User(Base):
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, index=True)
-    username = Column(String, unique=True, index=True, nullable=False) # This is the User ID
-    nickname = Column(String, index=True, nullable=False) # This is the Display Name
-    email = Column(String, unique=True, index=True, nullable=True) # Made nullable
+    username = Column(String, unique=True, index=True, nullable=False) # User ID
+    nickname = Column(String, index=True, nullable=False) # Display Name
+    email = Column(String, unique=True, index=True, nullable=True)
     hashed_password = Column(String, nullable=False)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -48,6 +54,8 @@ class User(Base):
         secondaryjoin=(followers_assoc.c.follower_id == id),
         back_populates='following'
     )
+    
+    activities = relationship("Activity", back_populates="user", cascade="all, delete-orphan", foreign_keys="[Activity.user_id]")
 
 
 class Playlist(Base):
@@ -102,3 +110,22 @@ class ListeningHistory(Base):
 
     user = relationship("User", back_populates="listening_history")
     track = relationship("Track", back_populates="listening_history")
+
+class Activity(Base):
+    __tablename__ = "activities"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    action_type = Column(String, nullable=False) # CREATE_PLAYLIST, LIKE_PLAYLIST, FOLLOW_USER
+    
+    # Target ID (Playlist ID or User ID depending on action)
+    # We store ID only to keep it simple, or we can use separate nullable FKs.
+    # Using nullable FKs is safer for referential integrity.
+    target_playlist_id = Column(Integer, ForeignKey("playlists.id"), nullable=True)
+    target_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    user = relationship("User", back_populates="activities", foreign_keys=[user_id])
+    target_playlist = relationship("Playlist")
+    target_user = relationship("User", foreign_keys=[target_user_id])

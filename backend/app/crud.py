@@ -4,6 +4,50 @@ from . import models, schemas, security
 from typing import List, Optional
 from datetime import datetime, timedelta, timezone
 
+# --- Activity CRUD ---
+
+def create_activity(
+    db: Session, 
+    user_id: int, 
+    action_type: str, 
+    target_playlist_id: Optional[int] = None, 
+    target_user_id: Optional[int] = None
+):
+    db_activity = models.Activity(
+        user_id=user_id,
+        action_type=action_type,
+        target_playlist_id=target_playlist_id,
+        target_user_id=target_user_id
+    )
+    db.add(db_activity)
+    db.commit()
+    db.refresh(db_activity)
+    return db_activity
+
+def get_feed_activities(db: Session, user_id: int, limit: int = 20):
+    """
+    Get activities from users that the current user follows.
+    """
+    # Get list of IDs the user follows
+    user = db.query(models.User).options(joinedload(models.User.following)).filter(models.User.id == user_id).first()
+    if not user:
+        return []
+    
+    following_ids = [u.id for u in user.following]
+    
+    if not following_ids:
+        return []
+
+    return db.query(models.Activity).options(
+        joinedload(models.Activity.user),
+        joinedload(models.Activity.target_playlist).joinedload(models.Playlist.owner),
+        joinedload(models.Activity.target_playlist).subqueryload(models.Playlist.tracks).joinedload(models.PlaylistTrack.track), # Load tracks for cover art
+        joinedload(models.Activity.target_user)
+    ).filter(
+        models.Activity.user_id.in_(following_ids)
+    ).order_by(desc(models.Activity.created_at)).limit(limit).all()
+
+
 # --- User CRUD ---
 
 def get_user(db: Session, user_id: int):
@@ -13,17 +57,16 @@ def get_user_by_email(db: Session, email: str):
     return db.query(models.User).filter(models.User.email == email).first()
 
 def get_user_by_username(db: Session, username: str):
-    # Eagerly load relationships for profile page
     return db.query(models.User).options(
         subqueryload(models.User.playlists).options(
-            joinedload(models.Playlist.owner), # Eager load the owner of each playlist
+            joinedload(models.Playlist.owner),
             subqueryload(models.Playlist.tracks).options(
                 joinedload(models.PlaylistTrack.track)
             ),
             subqueryload(models.Playlist.liked_by)
         ),
         subqueryload(models.User.liked_playlists).options(
-            joinedload(models.Playlist.owner), # Eager load the owner of each liked playlist
+            joinedload(models.Playlist.owner),
             subqueryload(models.Playlist.tracks).options(
                 joinedload(models.PlaylistTrack.track)
             ),
@@ -38,7 +81,6 @@ def get_users(db: Session, skip: int = 0, limit: int = 100):
 
 def search_users(db: Session, query: str, skip: int = 0, limit: int = 100):
     search_query = f"%{query}%"
-    # Search by username (ID) or nickname
     return db.query(models.User).filter(
         or_(
             models.User.username.ilike(search_query),
@@ -48,11 +90,10 @@ def search_users(db: Session, query: str, skip: int = 0, limit: int = 100):
 
 def create_user(db: Session, user: schemas.UserCreate):
     hashed_password = security.get_password_hash(user.password)
-    # Create user with username (ID) and nickname
     db_user = models.User(
         username=user.username, 
         nickname=user.nickname,
-        email=user.email, # Optional
+        email=user.email, 
         hashed_password=hashed_password
     )
     db.add(db_user)
@@ -83,10 +124,12 @@ def update_user(db: Session, db_user: models.User, user_in: schemas.UserUpdate):
 
 def follow_user(db: Session, follower: models.User, followed: models.User):
     if follower.id == followed.id:
-        return None # Users cannot follow themselves
+        return None
     if followed not in follower.following:
         follower.following.append(followed)
         db.commit()
+        # Record Activity
+        create_activity(db, follower.id, models.ActivityType.FOLLOW_USER, target_user_id=followed.id)
     return follower
 
 def unfollow_user(db: Session, follower: models.User, followed: models.User):
@@ -147,7 +190,7 @@ def get_playlist(db: Session, playlist_id: int):
     return db.query(models.Playlist).options(
         joinedload(models.Playlist.owner),
         subqueryload(models.Playlist.tracks).joinedload(models.PlaylistTrack.track),
-        subqueryload(models.Playlist.liked_by) # Eager load who liked this playlist
+        subqueryload(models.Playlist.liked_by)
     ).filter(models.Playlist.id == playlist_id).first()
 
 def get_public_playlists(db: Session, skip: int = 0, limit: int = 20):
@@ -158,13 +201,7 @@ def get_public_playlists(db: Session, skip: int = 0, limit: int = 20):
     ).filter(models.Playlist.is_public == True).order_by(desc(models.Playlist.created_at)).offset(skip).limit(limit).all()
 
 def get_trending_playlists(db: Session, limit: int = 10):
-    """
-    Fetches playlists with the most likes in the last 24 hours.
-    Falls back to recent public playlists if not enough trending data.
-    """
     threshold = datetime.now(timezone.utc) - timedelta(hours=24)
-
-    # Subquery to count likes per playlist in the last 24h
     stmt = (
         db.query(
             models.playlist_likes.c.playlist_id,
@@ -177,7 +214,6 @@ def get_trending_playlists(db: Session, limit: int = 10):
         .subquery()
     )
 
-    # Join with Playlist model to get full objects
     trending_playlists = (
         db.query(models.Playlist)
         .join(stmt, models.Playlist.id == stmt.c.playlist_id)
@@ -191,7 +227,6 @@ def get_trending_playlists(db: Session, limit: int = 10):
         .all()
     )
 
-    # If we don't have enough trending playlists, fill with recent public ones
     if len(trending_playlists) < limit:
         needed = limit - len(trending_playlists)
         existing_ids = [p.id for p in trending_playlists]
@@ -244,20 +279,21 @@ def get_liked_playlists(db: Session, user_id: int):
     return user.liked_playlists if user else []
 
 def create_playlist(db: Session, name: str, owner_id: int, track_ids: List[int]):
-    # Create the playlist entry
-    db_playlist = models.Playlist(name=name, owner_id=owner_id, is_public=True) # Assuming public by default
+    db_playlist = models.Playlist(name=name, owner_id=owner_id, is_public=True)
     db.add(db_playlist)
     db.commit()
     db.refresh(db_playlist)
 
-    # Create the track entries
     for track_id in track_ids:
         db_track = models.PlaylistTrack(playlist_id=db_playlist.id, track_id=track_id)
         db.add(db_track)
     
     db.commit()
     db.refresh(db_playlist)
-    # Re-fetch the playlist with all relationships loaded for the response
+    
+    # Record Activity
+    create_activity(db, owner_id, models.ActivityType.CREATE_PLAYLIST, target_playlist_id=db_playlist.id)
+    
     return get_playlist(db, db_playlist.id)
 
 def update_playlist(db: Session, playlist_id: int, playlist_update: schemas.PlaylistUpdate):
@@ -294,6 +330,9 @@ def like_playlist(db: Session, playlist_id: int, user_id: int):
         db_playlist.liked_by.append(db_user)
         db.commit()
         db.refresh(db_playlist)
+        # Record Activity
+        create_activity(db, user_id, models.ActivityType.LIKE_PLAYLIST, target_playlist_id=playlist_id)
+        
     return get_playlist(db, db_playlist.id)
 
 def unlike_playlist(db: Session, playlist_id: int, user_id: int):

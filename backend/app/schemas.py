@@ -56,45 +56,28 @@ class PlaylistTrack(PlaylistTrackBase):
     class Config:
         from_attributes = True
 
-# --- User Schemas ---
-class UserBase(BaseModel):
-    username: str
-    nickname: str
-    email: Optional[str] = None # Changed from EmailStr to str, and made default None
+# --- Achievement Schema ---
+class Achievement(BaseModel):
+    id: str
+    name: str
+    description: str
+    icon: str 
 
-class UserCreate(UserBase):
-    password: str
-
-class UserUpdate(BaseModel):
-    username: Optional[str] = None # ID usually shouldn't change, but keeping it optional
-    nickname: Optional[str] = None
-    email: Optional[EmailStr] = None
-    password: Optional[str] = None
-
-class UserStats(BaseModel):
-    top_genre: Optional[str] = None
-
-# Schema for genre distribution
-class GenreStat(BaseModel):
-    genre: str
-    count: int
-
-# Schema for simplified user lists (followers/following)
-class UserForList(BaseModel):
-    id: int
-    username: str
-    nickname: str # Added nickname
-    profile_image_key: str
-
-# Schema for User Recommendation
-class UserRecommendation(UserForList):
-    similarity: float
-
-# Schema for the owner field within a Playlist
+# --- Playlist Owner Schema ---
 class PlaylistOwner(BaseModel):
     id: int
     username: str
-    nickname: str # Added nickname
+    nickname: str
+
+    class Config:
+        from_attributes = True
+
+# --- User For List Schema (Moved Up) ---
+class UserForList(BaseModel):
+    id: int
+    username: str
+    nickname: str
+    profile_image_key: str
 
     class Config:
         from_attributes = True
@@ -119,7 +102,7 @@ class Playlist(PlaylistBase):
     owner: PlaylistOwner
     tracks: List[Track] = []
     liked_by: List[PlaylistOwner] = []
-    liked_by_user: bool = False # This will be set dynamically in the router
+    liked_by_user: bool = False
 
     @computed_field
     @property
@@ -130,9 +113,7 @@ class Playlist(PlaylistBase):
     @classmethod
     def extract_tracks_from_playlist_tracks(cls, v):
         if v and isinstance(v, list) and len(v) > 0 and isinstance(v[0], models.PlaylistTrack):
-            # Extract the actual Track objects
             tracks = [pt.track for pt in v if pt.track is not None]
-            # Manually add the audio_url to each track
             for track in tracks:
                 track.audio_url = f"/api/tracks/{track.track_id}/stream"
             return tracks
@@ -140,6 +121,43 @@ class Playlist(PlaylistBase):
 
     class Config:
         from_attributes = True
+
+# --- Activity Schema ---
+class Activity(BaseModel):
+    id: int
+    user: UserForList # Changed from PlaylistOwner to UserForList to include profile_image_key
+    action_type: str
+    target_playlist: Optional[Playlist] = None
+    target_user: Optional[UserForList] = None # Changed to UserForList
+    created_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+# --- User Schemas ---
+class UserBase(BaseModel):
+    username: str
+    nickname: str
+    email: Optional[str] = None
+
+class UserCreate(UserBase):
+    password: str
+
+class UserUpdate(BaseModel):
+    username: Optional[str] = None
+    nickname: Optional[str] = None
+    email: Optional[str] = None
+    password: Optional[str] = None
+
+class UserStats(BaseModel):
+    top_genre: Optional[str] = None
+
+class GenreStat(BaseModel):
+    genre: str
+    count: int
+
+class UserRecommendation(UserForList):
+    similarity: float
 
 class UserForProfile(UserBase):
     id: int
@@ -149,17 +167,15 @@ class UserForProfile(UserBase):
     class Config:
         from_attributes = True
 
-# This full User schema depends on Playlist, so it must come after.
 class User(UserBase):
     id: int
     is_active: bool
     playlists: List[Playlist] = []
     liked_playlists: List[Playlist] = []
+    achievements: List[Achievement] = [] 
     
-    # Fields for follow feature
-    is_followed_by_current_user: bool = False # Set dynamically
+    is_followed_by_current_user: bool = False
     
-    # Relationship fields needed for computation
     followers: List[Any] = Field(default=[], exclude=True) 
     following: List[Any] = Field(default=[], exclude=True)
 

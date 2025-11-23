@@ -7,25 +7,35 @@ import { getUserProfile, getUserCreatedPlaylists, getUserLikedPlaylists, followU
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { PlaylistCard } from "@/components/playlist-card"
 import { UserListDialog } from "@/components/user-list-dialog"
 import { GenreChart } from "@/components/genre-chart"
-import { Loader2, UserPlus, UserCheck, Edit, Music, Users, Heart, PieChart } from "lucide-react"
+import { Loader2, UserPlus, UserCheck, Edit, Music, Users, Heart, PieChart, Award, User } from "lucide-react" // Added User icon
 import Link from "next/link"
 import { toast } from "@/components/ui/use-toast"
 import { cn } from "@/lib/utils"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
-// Define interfaces for the data structures
+// Define interfaces
+interface Achievement {
+    id: string;
+    name: string;
+    description: string;
+    icon: string;
+}
+
 interface UserProfile {
   id: number;
-  username: string; // User ID
-  nickname: string; // Display Name
+  username: string;
+  nickname: string;
   email: string;
   playlists: any[];
   liked_playlists: any[];
   followers_count: number;
   following_count: number;
   is_followed_by_current_user: boolean;
+  achievements: Achievement[];
 }
 
 interface Playlist {
@@ -54,23 +64,37 @@ interface GenreStat {
 }
 
 const genreColors: { [key: string]: string } = {
-  "Electronic": "#8884d8",
-  "Rock": "#82ca9d",
-  "Pop": "#ffc658",
-  "Hip-Hop": "#ff8042",
-  "Experimental": "#00C49F",
-  "Folk": "#0088FE",
-  "Jazz": "#FFBB28",
-  "Instrumental": "#FF8042",
-  "Classical": "#00C49F",
-  "International": "#FFBB28",
-  "Country": "#0088FE",
-  "Old-Time / Historic": "#82ca9d",
-  "Spoken": "#8884d8",
-  "Blues": "#ffc658",
-  "Easy Listening": "#00C49F",
-  "Soul-RnB": "#FF8042",
+  "Electronic": "#6F98FC",
+  "Rock": "#F46F6F",
+  "Pop": "#43C59E",
+  "Hip-Hop": "#FFD159",
+  "Experimental": "#B665F8",
+  "Folk": "#F8931F",
+  "Jazz": "#5FDBE9",
+  "Instrumental": "#DD7DFF",
+  "Classical": "#C7F960",
+  "International": "#FC896F",
+  "Country": "#6155A6",
+  "Old-Time / Historic": "#F9CC6C",
+  "Spoken": "#7C66FE",
+  "Blues": "#D65F8C",
+  "Easy Listening": "#76B041",
+  "Soul-RnB": "#FD9644",
 };
+
+// Generate a consistent color from a string
+const stringToColor = (str: string) => {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = str.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  let color = '#';
+  for (let i = 0; i < 3; i++) {
+    const value = (hash >> (i * 8)) & 0xFF;
+    color += ('00' + value.toString(16)).substr(-2);
+  }
+  return color;
+}
 
 export default function UserProfilePage() {
   const { userId } = useParams()
@@ -85,7 +109,6 @@ export default function UserProfilePage() {
   const [topGenre, setTopGenre] = useState<string | null>(null)
   const [genreStats, setGenreStats] = useState<GenreStat[]>([])
   
-  // State for the user list dialog
   const [isListOpen, setIsListOpen] = useState(false)
   const [listTitle, setListTitle] = useState("")
   const [userList, setUserList] = useState<SimpleUser[]>([])
@@ -100,7 +123,6 @@ export default function UserProfilePage() {
       setLoading(true)
       setError(null)
 
-      // Fetch all data in parallel
       const [profileResult, statsResult, genreStatsResult, createdResult, likedResult] = await Promise.all([
         getUserProfile(username, token),
         getUserStats(username),
@@ -280,7 +302,7 @@ export default function UserProfilePage() {
     if (topGenre && genreColors[topGenre]) {
       return `/profiles/${topGenre}.png`;
     }
-    if (createdPlaylists.length > 0) {
+    if (profileUser.playlists && profileUser.playlists.length > 0) {
       return `/profiles/Default_Headphone.png`;
     }
     return `/profiles/Default.png`;
@@ -290,73 +312,140 @@ export default function UserProfilePage() {
   const chartData = genreStats.map(stat => ({
     name: stat.genre,
     value: stat.count,
-    color: genreColors[stat.genre] || '#cccccc' // Fallback color
+    color: genreColors[stat.genre] || stringToColor(stat.genre) 
   }));
 
   return (
     <>
       <main className="min-h-screen py-24">
         <div className="container mx-auto px-4 max-w-6xl">
-          <div className="space-y-8">
-            <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
-              <Avatar className="h-32 w-32 border-4 border-primary/20">
-                <AvatarImage src={profileImage} alt={profileUser.nickname || profileUser.username} className="object-contain" />
-                <AvatarFallback className="text-4xl bg-primary/10 text-primary">
-                  {profileUser.username.substring(0, 2).toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
+          <div className="space-y-6">
+            
+            {/* Top Section: Profile Card (2/3) + Genre Chart (1/3) */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                
+                {/* Profile Header Card */}
+                <Card className="border border-primary lg:col-span-2 h-full">
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-lg flex items-center gap-2">
+                            <User className="h-5 w-5 text-primary" /> {/* Using User icon for Profile */}
+                            Profile
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-6 h-full flex flex-col justify-center">
+                        <div className="flex flex-col sm:flex-row items-start gap-8">
+                            {/* Left Column: Avatar + User Info + Button */}
+                            <div className="flex flex-col items-center text-center sm:text-left sm:items-start gap-4 min-w-[160px]">
+                                <Avatar className="h-32 w-32 border-4 border-primary/20">
+                                    <AvatarImage src={profileImage} alt={profileUser.nickname || profileUser.username} className="object-contain" />
+                                    <AvatarFallback className="text-4xl bg-primary/10 text-primary">
+                                    {profileUser.username.substring(0, 2).toUpperCase()}
+                                    </AvatarFallback>
+                                </Avatar>
+                                
+                                <div className="space-y-1 w-full">
+                                    <h1 className="text-2xl font-bold break-words">{profileUser.nickname}</h1>
+                                    <p className="text-muted-foreground text-sm break-all">@{profileUser.username}</p>
+                                </div>
 
-              <div className="flex-1 space-y-4">
-                <div>
-                  {/* Display Nickname primarily, User ID secondarily */}
-                  <h1 className="text-4xl font-bold">{profileUser.nickname}</h1>
-                  <p className="text-muted-foreground">@{profileUser.username}</p>
-                </div>
+                                {isOwnProfile ? (
+                                <Button asChild variant="outline" className="w-full gap-2">
+                                    <Link href="/profile/edit">
+                                    <Edit className="h-4 w-4" />
+                                    Edit Profile
+                                    </Link>
+                                </Button>
+                                ) : (
+                                <Button onClick={profileUser.is_followed_by_current_user ? handleUnfollow : handleFollow} variant={profileUser.is_followed_by_current_user ? "secondary" : "default"} className="w-full gap-2">
+                                    {profileUser.is_followed_by_current_user ? (
+                                    <>
+                                        <UserCheck className="h-4 w-4" />
+                                        Following
+                                    </>
+                                    ) : (
+                                    <>
+                                        <UserPlus className="h-4 w-4" />
+                                        Follow
+                                    </>
+                                    )}
+                                </Button>
+                                )}
+                            </div>
 
-                <div className="flex flex-wrap gap-6">
-                  <div className="flex items-center gap-2">
-                    <Music className="h-5 w-5 text-primary" />
-                    <span className="font-semibold">{createdPlaylists.length}</span>
-                    <span className="text-muted-foreground">Playlists</span>
-                  </div>
-                  <button onClick={() => handleShowList('followers')} className="flex items-center gap-2 hover:bg-muted p-2 rounded-md transition-colors">
-                    <Users className="h-5 w-5 text-primary" />
-                    <span className="font-semibold">{profileUser.followers_count}</span>
-                    <span className="text-muted-foreground">Followers</span>
-                  </button>
-                  <button onClick={() => handleShowList('following')} className="flex items-center gap-2 hover:bg-muted p-2 rounded-md transition-colors">
-                    <Heart className="h-5 w-5 text-primary" />
-                    <span className="font-semibold">{profileUser.following_count}</span>
-                    <span className="text-muted-foreground">Following</span>
-                  </button>
-                </div>
+                            {/* Right Column: Stats + Achievements */}
+                            <div className="flex-1 w-full flex flex-col gap-6 pt-2">
+                                {/* Stats - Evenly spaced */}
+                                <div className="grid grid-cols-3 gap-4 text-center bg-surface-elevated rounded-lg p-4 border border-border">
+                                    <div className="flex flex-col items-center justify-center">
+                                        <Music className="h-5 w-5 text-primary mb-1" />
+                                        <span className="font-bold text-lg">{profileUser.playlists.length}</span>
+                                        <span className="text-xs text-muted-foreground">Playlists</span>
+                                    </div>
+                                    <button onClick={() => handleShowList('followers')} className="flex flex-col items-center justify-center hover:bg-muted rounded transition-colors p-1">
+                                        <Users className="h-5 w-5 text-primary mb-1" />
+                                        <span className="font-bold text-lg">{profileUser.followers_count}</span>
+                                        <span className="text-xs text-muted-foreground">Followers</span>
+                                    </button>
+                                    <button onClick={() => handleShowList('following')} className="flex flex-col items-center justify-center hover:bg-muted rounded transition-colors p-1">
+                                        <Heart className="h-5 w-5 text-primary mb-1" />
+                                        <span className="font-bold text-lg">{profileUser.following_count}</span>
+                                        <span className="text-xs text-muted-foreground">Following</span>
+                                    </button>
+                                </div>
+                                
+                                {/* Achievements */}
+                                {profileUser.achievements && profileUser.achievements.length > 0 && (
+                                    <div className="space-y-3">
+                                        <div className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
+                                            <Award className="h-4 w-4 text-primary" />
+                                            Achievements
+                                        </div>
+                                        <div className="flex flex-wrap gap-3">
+                                            <TooltipProvider>
+                                                {profileUser.achievements.map((achievement) => (
+                                                    <Tooltip key={achievement.id}>
+                                                        <TooltipTrigger asChild>
+                                                            <div className="flex items-center justify-center w-12 h-12 bg-surface-elevated border border-border rounded-full text-2xl cursor-help hover:border-primary transition-colors shadow-sm">
+                                                                {achievement.icon}
+                                                            </div>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent>
+                                                            <p className="font-semibold">{achievement.name}</p>
+                                                            <p className="text-xs text-muted-foreground">{achievement.description}</p>
+                                                        </TooltipContent>
+                                                    </Tooltip>
+                                                ))}
+                                            </TooltipProvider>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
 
-                {isOwnProfile ? (
-                  <Button asChild variant="outline" className="gap-2">
-                    <Link href="/profile/edit">
-                      <Edit className="h-4 w-4" />
-                      Edit Profile
-                    </Link>
-                  </Button>
-                ) : (
-                  <Button onClick={profileUser.is_followed_by_current_user ? handleUnfollow : handleFollow} variant={profileUser.is_followed_by_current_user ? "secondary" : "default"} className="gap-2">
-                    {profileUser.is_followed_by_current_user ? (
-                      <>
-                        <UserCheck className="h-4 w-4" />
-                        Following
-                      </>
-                    ) : (
-                      <>
-                        <UserPlus className="h-4 w-4" />
-                        Follow
-                      </>
-                    )}
-                  </Button>
-                )}
-              </div>
+                {/* Genre Chart Card (Right Side) */}
+                <Card className="border border-primary lg:col-span-1 h-full"> 
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-lg flex items-center gap-2">
+                            <PieChart className="h-5 w-5 text-primary" />
+                            Top Genres
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-4 pt-0 min-h-[250px] h-auto flex items-center justify-center">
+                        {chartData.length > 0 ? (
+                            <div className="w-full h-[250px]"> {/* Reduced height to 250px */}
+                                <GenreChart data={chartData} />
+                            </div>
+                        ) : (
+                            <p className="text-muted-foreground text-sm">No listening data yet.</p>
+                        )}
+                    </CardContent>
+                </Card>
             </div>
 
-            <Tabs defaultValue="my-playlists" className="w-full pt-8">
+            {/* Playlists Section */}
+            <Tabs defaultValue="my-playlists" className="w-full">
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger 
                   value="my-playlists" 
@@ -410,18 +499,6 @@ export default function UserProfilePage() {
                   )}
               </TabsContent>
             </Tabs>
-
-            {chartData.length > 0 && (
-              <div className="space-y-4 pt-8">
-                <div className="flex items-center gap-2">
-                  <PieChart className="h-6 w-6 text-primary" />
-                  <h2 className="text-2xl font-bold">Top Genres</h2>
-                </div>
-                <div className="p-4 bg-card border border-primary rounded-lg">
-                  <GenreChart data={chartData} />
-                </div>
-              </div>
-            )}
           </div>
         </div>
       </main>

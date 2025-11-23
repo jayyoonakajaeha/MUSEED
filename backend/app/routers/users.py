@@ -15,7 +15,6 @@ def _get_profile_image_key(db: Session, db_user: models.User) -> str:
     """Determine the profile image key based on user activity."""
     top_genre_result = crud.get_top_genre_for_user(db, user_id=db_user.id)
     if top_genre_result and top_genre_result.genre:
-        # Ensure the genre name matches a known image file, otherwise fallback
         known_genres = [
             "Blues", "Classical", "Country", "Electronic", "Experimental", 
             "Folk", "Hip-Hop", "Instrumental", "International", "Jazz", 
@@ -30,6 +29,60 @@ def _get_profile_image_key(db: Session, db_user: models.User) -> str:
         return "Default_Headphone"
         
     return "Default"
+
+def _calculate_achievements(db_user: models.User) -> List[schemas.Achievement]:
+    achievements = []
+    
+    # 1. Seed Planter: Created first playlist
+    playlist_count = len(db_user.playlists)
+    if playlist_count >= 1:
+        achievements.append(schemas.Achievement(
+            id="seed_planter",
+            name="Seed Planter",
+            description="Created your first playlist.",
+            icon="🌱"
+        ))
+    
+    # 2. Curator: Created 5+ playlists
+    if playlist_count >= 5:
+        achievements.append(schemas.Achievement(
+            id="curator",
+            name="Curator",
+            description="Created 5 or more playlists.",
+            icon="🎨"
+        ))
+
+    # 3. Social Butterfly: Following 5+ users
+    following_count = len(db_user.following)
+    if following_count >= 5:
+        achievements.append(schemas.Achievement(
+            id="social_butterfly",
+            name="Social Butterfly",
+            description="Following 5 or more users.",
+            icon="🦋"
+        ))
+
+    # 4. Trendsetter: Has 10+ followers
+    followers_count = len(db_user.followers)
+    if followers_count >= 10:
+        achievements.append(schemas.Achievement(
+            id="trendsetter",
+            name="Trendsetter",
+            description="Has 10 or more followers.",
+            icon="🔥"
+        ))
+
+    # 5. Music Lover: Liked 10+ playlists
+    liked_count = len(db_user.liked_playlists)
+    if liked_count >= 10:
+        achievements.append(schemas.Achievement(
+            id="music_lover",
+            name="Music Lover",
+            description="Liked 10 or more playlists.",
+            icon="❤️"
+        ))
+
+    return achievements
 
 def _populate_user_response(db_user: models.User, current_user: Optional[models.User]) -> schemas.User:
     """Helper function to populate the full User schema from an ORM object."""
@@ -52,16 +105,20 @@ def _populate_user_response(db_user: models.User, current_user: Optional[models.
         for pl in liked_playlists:
             pl.liked_by_user = True # All playlists in this list are liked by the current user
 
+    # Calculate Achievements
+    achievements = _calculate_achievements(db_user)
+
     user_response = schemas.User(
         id=db_user.id,
         username=db_user.username,
-        nickname=db_user.nickname, # Added nickname
+        nickname=db_user.nickname, 
         email=db_user.email,
         is_active=db_user.is_active,
         playlists=created_playlists,
         liked_playlists=liked_playlists,
-        followers=db_user.followers, # Pass the actual relationship list
-        following=db_user.following, # Pass the actual relationship list
+        followers=db_user.followers,
+        following=db_user.following,
+        achievements=achievements, # Added achievements
         is_followed_by_current_user=is_followed
     )
     return user_response
@@ -101,12 +158,68 @@ def get_user_recommendations(
         recommendations.append(schemas.UserRecommendation(
             id=user.id,
             username=user.username,
-            nickname=user.nickname, # Added nickname
+            nickname=user.nickname, 
             profile_image_key=_get_profile_image_key(db, user),
             similarity=similarity
         ))
         
     return recommendations
+
+@router.get("/feed", response_model=List[schemas.Activity])
+def get_user_feed(
+    limit: int = 20,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """
+    Get activity feed from followed users.
+    """
+    activities_db = crud.get_feed_activities(db, current_user.id, limit=limit)
+    
+    activities_response = []
+    for activity in activities_db:
+        # Manually construct UserForList for user and target_user to include profile_image_key
+        user_data = schemas.UserForList(
+            id=activity.user.id,
+            username=activity.user.username,
+            nickname=activity.user.nickname,
+            profile_image_key=_get_profile_image_key(db, activity.user)
+        )
+        
+        target_user_data = None
+        if activity.target_user:
+            target_user_data = schemas.UserForList(
+                id=activity.target_user.id,
+                username=activity.target_user.username,
+                nickname=activity.target_user.nickname,
+                profile_image_key=_get_profile_image_key(db, activity.target_user)
+            )
+            
+        # For playlist, we need to convert it to schema to handle tracks validation logic if any,
+        # but mainly it's fine as is via from_attributes=True if tracks are loaded.
+        # The crud.get_feed_activities joined loaded playlist.owner, but not tracks.
+        # We might need tracks for cover image (first track album art). 
+        # The Activity schema for playlist doesn't enforce tracks presence unless accessed.
+        # Front-end needs cover image.
+        
+        target_playlist_data = None
+        if activity.target_playlist:
+            # We need to ensure tracks are loaded if we want to use them for cover image
+            # Since crud didn't load them, we might trigger lazy load here or it might be empty.
+            # Let's assume basic info is enough and frontend handles missing cover.
+            # Or better, update CRUD to load tracks for playlist activities.
+            target_playlist_data = schemas.Playlist.model_validate(activity.target_playlist)
+
+        activities_response.append(schemas.Activity(
+            id=activity.id,
+            user=user_data,
+            action_type=activity.action_type,
+            target_playlist=target_playlist_data,
+            target_user=target_user_data,
+            created_at=activity.created_at
+        ))
+        
+    return activities_response
 
 @router.get("/{username}", response_model=schemas.User)
 def read_user(
@@ -118,8 +231,6 @@ def read_user(
     if db_user is None:
         raise HTTPException(status_code=404, detail="User not found")
     
-    # The frontend's logic for created/liked playlists is separate,
-    # so we can return the full user object here.
     return _populate_user_response(db_user, current_user)
 
 @router.post("/{username}/follow", response_model=schemas.User)
@@ -163,7 +274,7 @@ def get_followers(username: str, db: Session = Depends(get_db)):
         schemas.UserForList(
             id=f.id,
             username=f.username,
-            nickname=f.nickname, # Added nickname
+            nickname=f.nickname, 
             profile_image_key=_get_profile_image_key(db, f)
         ) for f in followers_db
     ]
@@ -176,7 +287,7 @@ def get_following(username: str, db: Session = Depends(get_db)):
         schemas.UserForList(
             id=f.id,
             username=f.username,
-            nickname=f.nickname, # Added nickname
+            nickname=f.nickname, 
             profile_image_key=_get_profile_image_key(db, f)
         ) for f in following_db
     ]
@@ -220,10 +331,6 @@ def update_user_profile(
         raise HTTPException(status_code=404, detail="User not found")
 
     if user_in.username and user_in.username != db_user.username:
-        # Prevent changing username (User ID) to keep it simple, or allow it with check
-        # User request implied ID is fixed: "고정된 유저 ID를 통해서 하면 되고"
-        # So we should arguably block username changes or warn. 
-        # But current logic allows it. Let's keep it but strictly check uniqueness.
         existing_user = crud.get_user_by_username(db, username=user_in.username)
         if existing_user:
             raise HTTPException(status_code=400, detail="User ID already taken.")

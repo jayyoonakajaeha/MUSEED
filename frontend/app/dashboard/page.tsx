@@ -3,42 +3,44 @@
 import { useState, useEffect } from "react"
 import { HeroSection } from "@/components/hero-section"
 import { PlaylistCard } from "@/components/playlist-card"
-import { TrendingUp, Activity, Loader2 } from "lucide-react"
+import { TrendingUp, Activity, Loader2, User, Music } from "lucide-react" // Added Music icon
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useAuth } from "@/context/AuthContext"
 import { cn } from "@/lib/utils"
-import { getTrendingPlaylists } from "@/lib/api"
+import { getTrendingPlaylists, getUserFeed } from "@/lib/api"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import Link from "next/link"
 
-// Mock feed data (unchanged for now)
-const feedActivities = [
-  {
-    id: "1",
-    user: "Sarah Kim",
-    action: "created a new playlist",
-    playlist: "Summer Nights",
-    time: "2 hours ago",
-    coverImage: "/neon-electronic-music.jpg",
-    playlistId: "2",
-  },
-  {
-    id: "2",
-    user: "Mike Johnson",
-    action: "liked",
-    playlist: "Midnight Vibes",
-    time: "5 hours ago",
-    coverImage: "/dark-purple-music-waves.jpg",
-    playlistId: "1",
-  },
-  {
-    id: "3",
-    user: "Emma Davis",
-    action: "created a new playlist",
-    playlist: "Chill Coding",
-    time: "1 day ago",
-    coverImage: "/lofi-aesthetic-purple.jpg",
-    playlistId: "4",
-  },
-]
+// Interface for Activity Feed
+interface ActivityItem {
+    id: number;
+    user: {
+        id: number;
+        username: string;
+        nickname: string;
+        profile_image_key: string;
+    };
+    action_type: string;
+    target_playlist?: {
+        id: number;
+        name: string;
+        tracks: any[]; // To access album art
+    };
+    target_user?: {
+        id: number;
+        username: string;
+        nickname: string;
+        profile_image_key: string;
+    };
+    created_at: string;
+}
+
+const getAlbumArtUrl = (url: string | null | undefined): string => {
+    if (url && (url.includes('.jpg') || url.includes('.png') || url.includes('.gif'))) {
+      return url;
+    }
+    return '/dark-purple-music-waves.jpg';
+  }
 
 function TrendingSection() {
     const [playlists, setPlaylists] = useState<any[]>([]);
@@ -46,16 +48,6 @@ function TrendingSection() {
     const { token } = useAuth();
 
     useEffect(() => {
-        // For guest users, token might be null, but the API might require it.
-        // Actually the backend endpoint likely requires auth for now based on typical router setup.
-        // But crud.get_trending_playlists doesn't strictly need user info except for 'liked_by_user' check.
-        // Let's assume we pass token if available, or empty string if not (backend might reject empty token).
-        // If backend requires auth for /trending, guests won't see it.
-        // Checking backend: router uses `current_user: models.User = Depends(get_current_user)`.
-        // So guests CANNOT see trending playlists currently.
-        // However, guests should probably see trending.
-        // We will try to fetch if token exists.
-        
         if (!token) {
             setLoading(false);
             return;
@@ -77,13 +69,115 @@ function TrendingSection() {
     }
 
     if (playlists.length === 0) {
-        return <p className="text-muted-foreground">No trending playlists found.</p>;
+        return <p className="text-muted-foreground">No trending playlists found yet.</p>;
     }
 
     return (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {playlists.map((playlist) => (
             <PlaylistCard key={playlist.id} playlist={playlist} />
+          ))}
+        </div>
+    );
+}
+
+function FeedSection() {
+    const [activities, setActivities] = useState<ActivityItem[]>([]);
+    const [loading, setLoading] = useState(true);
+    const { token } = useAuth();
+
+    useEffect(() => {
+        if (!token) {
+            setLoading(false);
+            return;
+        }
+
+        const fetchFeed = async () => {
+            setLoading(true);
+            const result = await getUserFeed(token);
+            if (result.success) {
+                setActivities(result.data);
+            }
+            setLoading(false);
+        }
+        fetchFeed();
+    }, [token]);
+
+    if (loading) {
+        return <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
+    }
+
+    if (activities.length === 0) {
+        return (
+            <div className="text-center py-12 bg-card border border-border rounded-xl">
+                <Activity className="h-12 w-12 text-muted-foreground/50 mx-auto mb-3" />
+                <p className="text-muted-foreground">Your feed is empty.</p>
+                <p className="text-sm text-muted-foreground mt-1">Follow people to see their activities here!</p>
+                <Link href="/discover" className="text-primary hover:underline mt-2 inline-block text-sm">
+                    Discover People
+                </Link>
+            </div>
+        );
+    }
+
+    // Helper to format date roughly
+    const formatTime = (dateString: string) => {
+        const date = new Date(dateString);
+        return date.toLocaleDateString() + " " + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    };
+
+    return (
+        <div className="space-y-4">
+          {activities.map((activity) => (
+            <div
+              key={activity.id}
+              className="flex items-center gap-4 p-4 rounded-lg bg-card border border-border hover:border-primary/50 transition-colors"
+            >
+              <Link href={`/user/${activity.user.username}`}>
+                <Avatar>
+                    <AvatarImage src={`/profiles/${activity.user.profile_image_key || 'Default'}.png`} />
+                    <AvatarFallback>{activity.user.username.substring(0, 2).toUpperCase()}</AvatarFallback>
+                </Avatar>
+              </Link>
+              
+              <div className="flex-1">
+                <p className="text-sm">
+                  <Link href={`/user/${activity.user.username}`} className="font-semibold text-primary hover:underline">
+                    {activity.user.nickname}
+                  </Link>{" "}
+                  {activity.action_type === "created a new playlist" && "created a new playlist"}
+                  {activity.action_type === "liked" && "liked playlist"}
+                  {activity.action_type === "started following" && "started following"}
+                  {" "}
+                  {activity.target_playlist && (
+                      <Link href={`/playlist/${activity.target_playlist.id}`} className="font-semibold hover:underline">
+                          {activity.target_playlist.name}
+                      </Link>
+                  )}
+                  {activity.target_user && (
+                      <Link href={`/user/${activity.target_user.username}`} className="font-semibold hover:underline">
+                          {activity.target_user.nickname}
+                      </Link>
+                  )}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">{formatTime(activity.created_at)}</p>
+              </div>
+              
+              {activity.target_playlist && (
+                  <div className="h-12 w-12 bg-muted rounded overflow-hidden flex-shrink-0">
+                      {activity.target_playlist.tracks && activity.target_playlist.tracks.length > 0 ? (
+                          <img 
+                            src={getAlbumArtUrl(activity.target_playlist.tracks[0].album_art_url)} 
+                            alt="Playlist Cover" 
+                            className="w-full h-full object-cover"
+                            onError={(e) => { e.currentTarget.src = '/dark-purple-music-waves.jpg'; }}
+                          />
+                      ) : (
+                          <Music className="h-full w-full p-3 text-muted-foreground" />
+                      )}
+                  </div>
+              )}
+            </div>
           ))}
         </div>
     );
@@ -121,27 +215,7 @@ function LoggedInDashboard() {
           <h2 className="text-3xl md:text-4xl font-bold">Your Feed</h2>
           <p className="text-muted-foreground">See what your friends are listening to</p>
         </div>
-        <div className="space-y-4">
-          {feedActivities.map((activity) => (
-            <div
-              key={activity.id}
-              className="flex items-center gap-4 p-4 rounded-lg bg-card border border-border hover:border-primary/50 transition-colors"
-            >
-              <img
-                src={activity.coverImage || "/placeholder.svg"}
-                alt={activity.playlist}
-                className="w-16 h-16 rounded-md object-cover"
-              />
-              <div className="flex-1">
-                <p className="text-sm">
-                  <span className="font-semibold text-primary">{activity.user}</span> {activity.action}{" "}
-                  <span className="font-semibold">{activity.playlist}</span>
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">{activity.time}</p>
-              </div>
-            </div>
-          ))}
-        </div>
+        <FeedSection />
       </TabsContent>
 
       {/* Trending Tab */}
@@ -163,8 +237,6 @@ function GuestDashboard() {
         <h2 className="text-3xl md:text-4xl font-bold">Join the Community</h2>
         <p className="text-muted-foreground">Sign up to create playlists and follow artists.</p>
       </div>
-      {/* Guests can't see trending yet because API requires token. 
-          In a real app, we'd make a public endpoint. For now, show a prompt. */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 opacity-50 pointer-events-none blur-sm select-none">
              {/* Fake placeholders to tease content */}
              {[1,2,3].map(i => (
