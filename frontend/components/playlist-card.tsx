@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { useAuth } from "@/context/AuthContext"
+import { usePlayer } from "@/context/PlayerContext"
 import { likePlaylist, unlikePlaylist } from "@/lib/api"
 import { toast } from "@/components/ui/use-toast"
 import { Button } from "@/components/ui/button"
@@ -54,6 +55,7 @@ export function PlaylistCard({ playlist, isOwner = false, onDelete, onTogglePubl
   const trackCount = tracks.length;
 
   const { token } = useAuth();
+  const { playPlaylist } = usePlayer();
 
   const [liked, setLiked] = useState(liked_by_user)
   const [currentLikeCount, setCurrentLikeCount] = useState(likes_count)
@@ -75,6 +77,19 @@ export function PlaylistCard({ playlist, isOwner = false, onDelete, onTogglePubl
     e.stopPropagation()
     if (creatorUsername) {
       router.push(`/user/${creatorUsername}`)
+    }
+  }
+
+  const handlePlay = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    e.preventDefault()
+    if (tracks && tracks.length > 0) {
+      playPlaylist(tracks);
+    } else {
+      toast({
+         title: "Empty Playlist",
+         description: "This playlist has no tracks.",
+      });
     }
   }
 
@@ -165,7 +180,10 @@ export function PlaylistCard({ playlist, isOwner = false, onDelete, onTogglePubl
 
         {/* Play Button Overlay */}
         <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-          <button className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-full p-4 transform scale-90 group-hover:scale-100 transition-transform">
+          <button 
+            onClick={handlePlay}
+            className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-full p-4 transform scale-90 group-hover:scale-100 transition-transform"
+          >
             <Play className="h-6 w-6 fill-current" />
           </button>
         </div>

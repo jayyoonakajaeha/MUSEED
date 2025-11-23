@@ -1,42 +1,57 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
-import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX } from "lucide-react"
+import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, ListMusic } from "lucide-react"
 import { useAuth } from "@/context/AuthContext"
+import { usePlayer } from "@/context/PlayerContext"
 import { recordListen } from "@/lib/api"
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { cn } from "@/lib/utils"
 
-interface Track {
-  track_id: number;
-  title: string;
-  artist_name: string;
-  genre_toplevel: string | null;
-  audio_url?: string;
-  duration: number;
-}
-
-interface AudioPlayerProps {
-  currentTrack: Track;
-  onNext: () => void
-  onPrevious: () => void
-}
-
-export function AudioPlayer({ currentTrack, onNext, onPrevious }: AudioPlayerProps) {
+export function AudioPlayer() {
   const { token } = useAuth();
-  const [isPlaying, setIsPlaying] = useState(false)
+  const { 
+    currentTrack, 
+    isPlaying, 
+    volume, 
+    isMuted, 
+    setIsPlaying, 
+    nextTrack, 
+    previousTrack, 
+    setVolume, 
+    toggleMute,
+    playlist,
+    playPlaylist
+  } = usePlayer();
+
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
-  const [volume, setVolume] = useState(0.7)
-  const [isMuted, setIsMuted] = useState(false)
   
   const audioRef = useRef<HTMLAudioElement>(null);
   const progressRef = useRef<HTMLDivElement>(null)
   const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
-  // Effect to control audio playback (play/pause)
+  const getAlbumArtUrl = (url: string | null | undefined): string => {
+    if (url && (url.includes('.jpg') || url.includes('.png') || url.includes('.gif'))) {
+      return url;
+    }
+    return '/dark-purple-music-waves.jpg';
+  }
+
+  // Effect to control audio playback
   useEffect(() => {
     if (audioRef.current) {
       if (isPlaying) {
-        audioRef.current.play().catch(error => console.error("Audio play failed:", error));
+        const playPromise = audioRef.current.play();
+        if (playPromise !== undefined) {
+          playPromise.catch(error => {
+            // Ignore AbortError which happens if playback is interrupted
+            if (error.name !== 'AbortError') {
+              console.error("Audio play failed:", error);
+            }
+          });
+        }
       } else {
         audioRef.current.pause();
       }
@@ -46,18 +61,27 @@ export function AudioPlayer({ currentTrack, onNext, onPrevious }: AudioPlayerPro
   // Effect to handle track changes
   useEffect(() => {
     if (audioRef.current && currentTrack?.audio_url) {
-      const wasPlaying = isPlaying;
-      setIsPlaying(false); // Stop playback while loading new track
+      // Pause current playback
+      audioRef.current.pause();
+      
+      // Update source
       audioRef.current.src = `${API_URL}${currentTrack.audio_url}`;
-      audioRef.current.load(); // Preload metadata
-      if (wasPlaying) {
-        audioRef.current.play().catch(error => console.error("Audio play failed:", error));
-        setIsPlaying(true);
+      audioRef.current.load();
+
+      // If it was supposed to be playing (handled by context setting isPlaying=true on track change), play.
+      if (isPlaying) {
+         const playPromise = audioRef.current.play();
+         if (playPromise !== undefined) {
+            playPromise.catch(error => {
+                if (error.name !== 'AbortError') {
+                    console.error("Audio play failed on track change:", error);
+                }
+            });
+         }
       }
     }
-    // We only want this to run when the track itself changes, not when isPlaying changes.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentTrack, API_URL]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentTrack, API_URL]); // Removed isPlaying from deps to avoid re-triggering
 
   // Effect to handle volume changes
   useEffect(() => {
@@ -66,10 +90,10 @@ export function AudioPlayer({ currentTrack, onNext, onPrevious }: AudioPlayerPro
     }
   }, [volume, isMuted]);
   
-  // Effect for recording listening history
+  // Record listening history
   useEffect(() => {
-    if (isPlaying && currentTime > 1 && currentTime < 2 && token && currentTrack.track_id && currentTrack.genre_toplevel) {
-      console.log(`Recording listen for track: ${currentTrack.track_id}, genre: ${currentTrack.genre_toplevel}`);
+    if (isPlaying && currentTime > 1 && currentTime < 2 && token && currentTrack?.track_id && currentTrack?.genre_toplevel) {
+      // console.log(`Recording listen for track: ${currentTrack.track_id}`);
       recordListen(
         { track_id: currentTrack.track_id.toString(), genre: currentTrack.genre_toplevel },
         token
@@ -103,87 +127,141 @@ export function AudioPlayer({ currentTrack, onNext, onPrevious }: AudioPlayerPro
     }
   }
 
-  const toggleMute = () => {
-    setIsMuted(!isMuted)
-  }
+  if (!currentTrack) return null;
 
   return (
-    <div className="bg-surface-elevated border border-border rounded-xl p-6 space-y-6">
+    <div className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur border-t border-border p-3 z-50 shadow-lg transition-transform duration-300 ease-in-out translate-y-0">
       <audio 
         ref={audioRef} 
-        onEnded={onNext} 
+        onEnded={nextTrack} 
         onTimeUpdate={onTimeUpdate}
         onLoadedMetadata={onLoadedMetadata}
       />
-      {/* Track Info */}
-      <div className="text-center space-y-2">
-        <h3 className="text-2xl font-bold text-balance">{currentTrack.title}</h3>
-        <p className="text-muted-foreground">{currentTrack.artist_name}</p>
-      </div>
-
-      {/* Progress Bar */}
-      <div className="space-y-2">
-        <div
-          ref={progressRef}
-          onClick={handleProgressClick}
-          className="relative h-2 bg-surface rounded-full cursor-pointer group"
-        >
-          <div
-            className="absolute inset-y-0 left-0 bg-primary rounded-full transition-all"
-            style={{ width: duration > 0 ? `${(currentTime / duration) * 100}%` : '0%' }}
-          />
-          <div
-            className="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-primary rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-            style={{ left: duration > 0 ? `calc(${(currentTime / duration) * 100}% - 8px)` : '0%' }}
-          />
+      
+      <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
+        
+        {/* Left: Track Info */}
+        <div className="flex items-center gap-3 w-1/3 min-w-0">
+            <img 
+                src={getAlbumArtUrl(currentTrack.album_art_url)} 
+                alt={currentTrack.title} 
+                className="h-12 w-12 rounded-md object-cover shadow-sm flex-shrink-0"
+                onError={(e) => { e.currentTarget.src = '/dark-purple-music-waves.jpg'; }}
+            />
+            <div className="flex flex-col min-w-0 justify-center">
+              <h3 className="font-semibold truncate text-sm md:text-base leading-tight">{currentTrack.title}</h3>
+              <p className="text-xs text-muted-foreground truncate">{currentTrack.artist_name}</p>
+            </div>
         </div>
-        <div className="flex justify-between text-sm text-muted-foreground">
-          <span>{formatTime(currentTime)}</span>
-          <span>{formatTime(duration)}</span>
+
+        {/* Center: Controls & Progress */}
+        <div className="flex flex-col items-center flex-1 max-w-xl w-full gap-1">
+          {/* Controls */}
+          <div className="flex items-center gap-4">
+            <button
+              onClick={previousTrack}
+              className="p-2 text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <SkipBack className="h-5 w-5" />
+            </button>
+
+            <button
+              onClick={() => setIsPlaying(!isPlaying)}
+              className="p-2 bg-primary text-primary-foreground rounded-full hover:scale-105 transition-transform"
+            >
+              {isPlaying ? <Pause className="h-5 w-5 fill-current" /> : <Play className="h-5 w-5 fill-current" />}
+            </button>
+
+            <button
+              onClick={nextTrack}
+              className="p-2 text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <SkipForward className="h-5 w-5" />
+            </button>
+          </div>
+
+          {/* Progress Bar */}
+          <div className="w-full flex items-center gap-2 text-xs text-muted-foreground">
+            <span className="w-10 text-right">{formatTime(currentTime)}</span>
+            <div
+              ref={progressRef}
+              onClick={handleProgressClick}
+              className="relative h-1.5 flex-1 bg-secondary rounded-full cursor-pointer group overflow-hidden"
+            >
+              <div
+                className="absolute inset-y-0 left-0 bg-primary transition-all"
+                style={{ width: duration > 0 ? `${(currentTime / duration) * 100}%` : '0%' }}
+              />
+            </div>
+            <span className="w-10">{formatTime(duration)}</span>
+          </div>
         </div>
-      </div>
 
-      {/* Controls */}
-      <div className="flex items-center justify-center gap-4">
-        <button
-          onClick={onPrevious}
-          className="p-3 hover:bg-surface rounded-full transition-colors text-muted-foreground hover:text-foreground"
-        >
-          <SkipBack className="h-5 w-5" />
-        </button>
+        {/* Right: Queue & Volume */}
+        <div className="flex items-center justify-end gap-4 w-1/3">
+          
+          {/* Queue Sheet */}
+          <Sheet>
+            <SheetTrigger asChild>
+              <button className="text-muted-foreground hover:text-foreground transition-colors p-2" title="Queue">
+                <ListMusic className="h-5 w-5" />
+              </button>
+            </SheetTrigger>
+            <SheetContent className="w-[400px] sm:w-[540px]">
+              <SheetHeader className="mb-4">
+                <SheetTitle>Queue</SheetTitle>
+              </SheetHeader>
+              <ScrollArea className="h-[calc(100vh-100px)] pr-4">
+                <div className="space-y-2">
+                  {playlist.map((track, index) => (
+                    <div
+                      key={`${track.track_id}-${index}`}
+                      onClick={() => playPlaylist(playlist, index)}
+                      className={cn(
+                        "flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors hover:bg-accent",
+                        currentTrack.track_id === track.track_id && "bg-accent/50 border-l-4 border-primary"
+                      )}
+                    >
+                       <img 
+                            src={getAlbumArtUrl(track.album_art_url)} 
+                            alt={track.title} 
+                            className="h-10 w-10 rounded object-cover"
+                            onError={(e) => { e.currentTarget.src = '/dark-purple-music-waves.jpg'; }}
+                        />
+                      <div className="flex-1 min-w-0">
+                        <p className={cn("text-sm font-medium truncate", currentTrack.track_id === track.track_id && "text-primary")}>
+                          {track.title}
+                        </p>
+                        <p className="text-xs text-muted-foreground truncate">
+                          {track.artist_name}
+                        </p>
+                      </div>
+                      {currentTrack.track_id === track.track_id && (
+                          <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            </SheetContent>
+          </Sheet>
 
-        <button
-          onClick={() => setIsPlaying(!isPlaying)}
-          className="p-5 bg-primary hover:bg-primary-hover text-primary-foreground rounded-full transition-all hover:scale-105"
-        >
-          {isPlaying ? <Pause className="h-6 w-6 fill-current" /> : <Play className="h-6 w-6 fill-current" />}
-        </button>
+          <div className="flex items-center gap-2">
+            <button onClick={toggleMute} className="text-muted-foreground hover:text-foreground">
+              {isMuted || volume === 0 ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+            </button>
+            <input
+              type="range"
+              min="0"
+              max="1"
+              step="0.01"
+              value={isMuted ? 0 : volume}
+              onChange={(e) => setVolume(Number.parseFloat(e.target.value))}
+              className="w-20 h-1.5 bg-secondary rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-primary"
+            />
+          </div>
+        </div>
 
-        <button
-          onClick={onNext}
-          className="p-3 hover:bg-surface rounded-full transition-colors text-muted-foreground hover:text-foreground"
-        >
-          <SkipForward className="h-5 w-5" />
-        </button>
-      </div>
-
-      {/* Volume Control */}
-      <div className="flex items-center gap-3">
-        <button onClick={toggleMute} className="text-muted-foreground hover:text-foreground transition-colors">
-          {isMuted || volume === 0 ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
-        </button>
-        <input
-          type="range"
-          min="0"
-          max="1"
-          step="0.01"
-          value={isMuted ? 0 : volume}
-          onChange={(e) => {
-            setVolume(Number.parseFloat(e.target.value))
-            setIsMuted(false)
-          }}
-          className="flex-1 h-2 bg-surface rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-primary [&::-webkit-slider-thumb]:cursor-pointer"
-        />
       </div>
     </div>
   )

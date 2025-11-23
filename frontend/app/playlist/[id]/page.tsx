@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from "react"
 import { useAuth } from "@/context/AuthContext"
+import { usePlayer } from "@/context/PlayerContext" // Import usePlayer
 import { getPlaylist, deletePlaylist, updatePlaylist, likePlaylist, unlikePlaylist } from "@/lib/api"
 import { useParams, useRouter } from "next/navigation"
-import { AudioPlayer } from "@/components/audio-player"
+// Remove AudioPlayer import
 import { Heart, Share2, Save, Music2, Edit2, Check, Trash2, Lock, Globe, Plus } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -43,8 +44,8 @@ interface Playlist {
   created_at: string;
   owner: PlaylistOwner;
   tracks: Track[];
-  likes_count: number; // Added
-  liked_by_user: boolean; // Added
+  likes_count: number;
+  liked_by_user: boolean;
 }
 
 const getAlbumArtUrl = (url: string | null | undefined): string => {
@@ -58,15 +59,14 @@ export default function PlaylistPage() {
   const router = useRouter()
   const params = useParams()
   const { user, token } = useAuth()
+  const { playPlaylist, currentTrack } = usePlayer() // Use global player context
 
   const [playlist, setPlaylist] = useState<Playlist | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const [currentTrackIndex, setCurrentTrackIndex] = useState(0)
-  const [likedState, setLikedState] = useState(false) // Replaced isLiked
-  const [currentLikeCount, setCurrentLikeCount] = useState(0) // New state for like count
-  const [isSaved, setIsSaved] = useState(false) // This will be replaced with real data later
+  const [likedState, setLikedState] = useState(false)
+  const [currentLikeCount, setCurrentLikeCount] = useState(0)
   const [isEditingTitle, setIsEditingTitle] = useState(false)
   
   const playlistId = params.id as string;
@@ -109,23 +109,16 @@ export default function PlaylistPage() {
   }
 
   const isOwner = user?.id === playlist.owner_id
-  const currentTrack = playlist.tracks[currentTrackIndex]
-
-  const handleNext = () => {
-    setCurrentTrackIndex((prev) => (prev + 1) % playlist.tracks.length)
-  }
-
-  const handlePrevious = () => {
-    setCurrentTrackIndex((prev) => (prev - 1 + playlist.tracks.length) % playlist.tracks.length)
-  }
-
+  
+  // Handle track click to play from global player
   const handleTrackClick = (index: number) => {
-    setCurrentTrackIndex(index)
+      if (playlist && playlist.tracks.length > 0) {
+          playPlaylist(playlist.tracks, index);
+      }
   }
 
   const handleSaveTitle = async () => {
     if (!token || !playlist) return;
-    // Assuming playlist.name holds the edited title
     const result = await updatePlaylist(playlist.id, { name: playlist.name }, token);
     if (result.success) {
       setPlaylist(result.data);
@@ -152,7 +145,7 @@ export default function PlaylistPage() {
           title: "Success",
           description: "Playlist deleted successfully.",
         });
-        router.push(`/user/${user?.username}`); // Redirect to user's profile after deletion
+        router.push(`/user/${user?.username}`);
       } else {
         toast({
           title: "Error",
@@ -236,7 +229,7 @@ export default function PlaylistPage() {
               <>
                 <input
                   type="text"
-                  value={playlist.name} // Use state for editing
+                  value={playlist.name} 
                   onChange={(e) => setPlaylist(prev => prev ? { ...prev, name: e.target.value } : null)}
                   className="flex-1 text-4xl md:text-5xl font-bold bg-transparent border-b-2 border-primary focus:outline-none"
                   autoFocus
@@ -326,80 +319,74 @@ export default function PlaylistPage() {
           </div>
         </div>
 
-        {/* Audio Player */}
-        {currentTrack && (
-          <AudioPlayer
-            key={currentTrack.track_id}
-            currentTrack={currentTrack}
-            onNext={handleNext}
-            onPrevious={handlePrevious}
-          />
-        )}
-
         {/* Track List */}
         <div className="bg-surface border border-border rounded-xl overflow-hidden">
           <div className="p-6 border-b border-border">
             <h2 className="text-xl font-semibold">Tracks</h2>
           </div>
           <div className="divide-y divide-border">
-            {playlist.tracks.map((track, index) => (
-              <div
-                key={track.track_id}
-                className={cn(
-                  "flex items-center gap-4 p-4 hover:bg-surface-elevated transition-colors group",
-                  currentTrackIndex === index && "bg-surface-elevated",
-                )}
-              >
-                <button onClick={() => handleTrackClick(index)} className="flex items-center gap-4 flex-1 text-left">
-                  <div className="flex-shrink-0 w-8 text-center">
-                    {currentTrackIndex === index ? (
-                      <div className="flex items-center justify-center">
-                        <div className="flex gap-1">
-                          <div className="w-1 h-4 bg-primary animate-pulse" />
-                          <div className="w-1 h-4 bg-primary animate-pulse [animation-delay:0.2s]" />
-                          <div className="w-1 h-4 bg-primary animate-pulse [animation-delay:0.4s]" />
-                        </div>
-                      </div>
-                    ) : (
-                      <span className="text-muted-foreground">{index + 1}</span>
-                    )}
-                  </div>
-
-                  <div className="flex-shrink-0 w-12 h-12 bg-surface rounded-lg flex items-center justify-center overflow-hidden">
-                    <img 
-                      src={getAlbumArtUrl(track.album_art_url)}
-                      alt={track.title}
-                      className="w-full h-full object-cover"
-                      onError={(e) => { e.currentTarget.src = '/dark-purple-music-waves.jpg'; }}
-                    />
-                  </div>
-
-                  <div className="flex-1 min-w-0">
-                    <div className={cn("font-semibold truncate", currentTrackIndex === index && "text-primary")}>
-                      {track.title}
-                    </div>
-                    <div className="text-sm text-muted-foreground truncate">{track.artist_name}</div>
-                  </div>
-
-                  <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                    {track.genre_toplevel && <span className="hidden sm:inline">{track.genre_toplevel}</span>}
-                    <span className="hidden md:inline">
-                      {Math.floor(track.duration / 60)}:{(track.duration % 60).toString().padStart(2, "0")}
-                    </span>
-                  </div>
-                </button>
-
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleCreateFromTrack(track.track_id)}
-                  className="opacity-0 group-hover:opacity-100 transition-opacity"
+            {playlist.tracks.map((track, index) => {
+              const isCurrentTrack = currentTrack?.track_id === track.track_id;
+              
+              return (
+                <div
+                  key={track.track_id}
+                  className={cn(
+                    "flex items-center gap-4 p-4 hover:bg-surface-elevated transition-colors group",
+                    isCurrentTrack && "bg-surface-elevated",
+                  )}
                 >
-                  <Plus className="h-4 w-4 mr-1" />
-                  Create
-                </Button>
-              </div>
-            ))}
+                  <button onClick={() => handleTrackClick(index)} className="flex items-center gap-4 flex-1 text-left">
+                    <div className="flex-shrink-0 w-8 text-center">
+                      {isCurrentTrack ? (
+                        <div className="flex items-center justify-center">
+                          <div className="flex gap-1">
+                            <div className="w-1 h-4 bg-primary animate-pulse" />
+                            <div className="w-1 h-4 bg-primary animate-pulse [animation-delay:0.2s]" />
+                            <div className="w-1 h-4 bg-primary animate-pulse [animation-delay:0.4s]" />
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground">{index + 1}</span>
+                      )}
+                    </div>
+
+                    <div className="flex-shrink-0 w-12 h-12 bg-surface rounded-lg flex items-center justify-center overflow-hidden">
+                      <img 
+                        src={getAlbumArtUrl(track.album_art_url)}
+                        alt={track.title}
+                        className="w-full h-full object-cover"
+                        onError={(e) => { e.currentTarget.src = '/dark-purple-music-waves.jpg'; }}
+                      />
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <div className={cn("font-semibold truncate", isCurrentTrack && "text-primary")}>
+                        {track.title}
+                      </div>
+                      <div className="text-sm text-muted-foreground truncate">{track.artist_name}</div>
+                    </div>
+
+                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                      {track.genre_toplevel && <span className="hidden sm:inline">{track.genre_toplevel}</span>}
+                      <span className="hidden md:inline">
+                        {Math.floor(track.duration / 60)}:{(track.duration % 60).toString().padStart(2, "0")}
+                      </span>
+                    </div>
+                  </button>
+
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleCreateFromTrack(track.track_id)}
+                    className="opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    Create
+                  </Button>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>

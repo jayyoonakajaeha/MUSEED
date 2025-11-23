@@ -1,16 +1,16 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
-import { Search, TrendingUp, Loader2, Music, Users as UsersIcon, ListMusic } from "lucide-react"
+import { useState, useEffect } from "react"
+import { Search, TrendingUp, Loader2, Music, ListMusic } from "lucide-react"
 import { PlaylistCard } from "@/components/playlist-card"
 import { useAuth } from "@/context/AuthContext"
+import { usePlayer } from "@/context/PlayerContext" // Import usePlayer
 import { getDiscoverPlaylists, searchTracks, searchUsers, searchPlaylists } from "@/lib/api"
 import { toast } from "@/components/ui/use-toast"
 import { useDebounce } from "@/hooks/use-debounce"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import Link from "next/link"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-
 
 // --- TYPE DEFINITIONS ---
 interface Playlist {
@@ -24,10 +24,14 @@ interface Playlist {
   coverImage?: string;
 }
 
+// Use a flexible interface that matches both API response and PlayerContext needs roughly
 interface Track {
   track_id: number;
   title: string;
   artist_name: string;
+  genre_toplevel: string | null; // Added to match PlayerContext
+  audio_url?: string; // Added to match PlayerContext
+  duration: number; // Added to match PlayerContext
   album_art_url?: string | null;
 }
 
@@ -43,7 +47,7 @@ interface SearchResults {
   users: User[];
 }
 
-// --- DUMMY RESULT CARDS (to be created as separate components later) ---
+// --- DUMMY RESULT CARDS ---
 const UserCard = ({ user }: { user: User }) => (
   <Link href={`/user/${user.username}`} className="flex items-center gap-4 p-3 rounded-lg bg-surface hover:bg-surface-elevated border border-border transition-colors">
     <Avatar>
@@ -57,12 +61,21 @@ const UserCard = ({ user }: { user: User }) => (
   </Link>
 );
 
-const TrackCard = ({ track }: { track: Track }) => (
-    <div className="flex items-center gap-4 p-3 rounded-lg bg-surface hover:bg-surface-elevated border border-border transition-colors">
-        <Avatar>
-            <AvatarImage src={track.album_art_url || '/dark-purple-music-waves.jpg'} />
-            <AvatarFallback><Music className="h-5 w-5" /></AvatarFallback>
-        </Avatar>
+// Updated TrackCard to be clickable
+const TrackCard = ({ track, onClick }: { track: Track, onClick: () => void }) => (
+    <div 
+      onClick={onClick}
+      className="flex items-center gap-4 p-3 rounded-lg bg-surface hover:bg-surface-elevated border border-border transition-colors cursor-pointer group"
+    >
+        <div className="relative">
+            <Avatar>
+                <AvatarImage src={track.album_art_url || '/dark-purple-music-waves.jpg'} />
+                <AvatarFallback><Music className="h-5 w-5" /></AvatarFallback>
+            </Avatar>
+            <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-full">
+                <Music className="h-4 w-4 text-white" />
+            </div>
+        </div>
         <div>
             <p className="font-semibold line-clamp-1">{track.title}</p>
             <p className="text-sm text-muted-foreground">{track.artist_name}</p>
@@ -73,6 +86,7 @@ const TrackCard = ({ track }: { track: Track }) => (
 
 export default function DiscoverPage() {
   const { token } = useAuth();
+  const { playPlaylist } = usePlayer(); // Use the player context
   
   // State for discover playlists
   const [discoverPlaylists, setDiscoverPlaylists] = useState<Playlist[]>([]);
@@ -137,6 +151,12 @@ export default function DiscoverPage() {
     performSearch();
   }, [debouncedSearchQuery, token]);
 
+  const handlePlayTrack = (startIndex: number) => {
+      if (searchResults.tracks.length > 0) {
+          playPlaylist(searchResults.tracks, startIndex);
+      }
+  };
+
   const totalResults = searchResults.tracks.length + searchResults.playlists.length + searchResults.users.length;
 
   return (
@@ -185,7 +205,13 @@ export default function DiscoverPage() {
                   <div className="space-y-4">
                     <h3 className="text-xl font-semibold">Tracks</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {searchResults.tracks.map(track => <TrackCard key={track.track_id} track={track} />)}
+                      {searchResults.tracks.map((track, index) => (
+                        <TrackCard 
+                            key={track.track_id} 
+                            track={track} 
+                            onClick={() => handlePlayTrack(index)}
+                        />
+                      ))}
                     </div>
                   </div>
                 )}
@@ -209,7 +235,13 @@ export default function DiscoverPage() {
 
               <TabsContent value="tracks" className="mt-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {searchResults.tracks.map(track => <TrackCard key={track.track_id} track={track} />)}
+                  {searchResults.tracks.map((track, index) => (
+                    <TrackCard 
+                        key={track.track_id} 
+                        track={track} 
+                        onClick={() => handlePlayTrack(index)}
+                    />
+                  ))}
                 </div>
               </TabsContent>
               <TabsContent value="playlists" className="mt-6">
