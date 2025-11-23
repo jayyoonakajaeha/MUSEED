@@ -262,6 +262,44 @@ def delete_playlist(
     crud.delete_playlist(db, playlist_id=playlist_id)
     return {"message": "Playlist deleted successfully"}
 
+@router.delete("/{playlist_id}/tracks/{track_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_track_from_playlist(
+    playlist_id: int,
+    track_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    db_playlist = crud.get_playlist(db, playlist_id=playlist_id)
+    if db_playlist is None:
+        raise HTTPException(status_code=404, detail="Playlist not found")
+    if db_playlist.owner_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to modify this playlist")
+        
+    success = crud.remove_track_from_playlist(db, playlist_id=playlist_id, track_id=track_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Track not found in playlist")
+    
+    return {"message": "Track removed from playlist"}
+
+class ReorderTracksRequest(schemas.BaseModel):
+    track_ids: List[int]
+
+@router.put("/{playlist_id}/tracks/reorder", status_code=status.HTTP_200_OK)
+def reorder_playlist_tracks(
+    playlist_id: int,
+    reorder_request: ReorderTracksRequest,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    db_playlist = crud.get_playlist(db, playlist_id=playlist_id)
+    if db_playlist is None:
+        raise HTTPException(status_code=404, detail="Playlist not found")
+    if db_playlist.owner_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to modify this playlist")
+        
+    crud.reorder_playlist_tracks(db, playlist_id=playlist_id, track_ids=reorder_request.track_ids)
+    return {"message": "Tracks reordered successfully"}
+
 @router.put("/{playlist_id}", response_model=schemas.Playlist)
 def update_playlist(
     playlist_id: int,

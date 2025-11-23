@@ -124,7 +124,7 @@ def _populate_user_response(db_user: models.User, current_user: Optional[models.
     return user_response
 
 
-@router.get("/search", response_model=List[schemas.UserForProfile])
+@router.get("/search", response_model=List[schemas.UserForList])
 def search_for_users(
     q: Optional[str] = None,
     skip: int = 0,
@@ -136,8 +136,18 @@ def search_for_users(
     """
     if q is None:
         return []
-    users = crud.search_users(db, query=q, skip=skip, limit=limit)
-    return users
+    users_db = crud.search_users(db, query=q, skip=skip, limit=limit)
+    
+    users_list = []
+    for user in users_db:
+        users_list.append(schemas.UserForList(
+            id=user.id,
+            username=user.username,
+            nickname=user.nickname,
+            profile_image_key=_get_profile_image_key(db, user)
+        ))
+        
+    return users_list
 
 @router.get("/recommendations", response_model=List[schemas.UserRecommendation])
 def get_user_recommendations(

@@ -4,16 +4,26 @@ const API_BASE_URL = 'http://localhost:8000';
 async function apiFetch(url: string, options: RequestInit = {}) {
   try {
     const response = await fetch(url, options);
-    const data = await response.json();
+    
+    let data = null;
+    if (response.status !== 204) {
+      try {
+        data = await response.json();
+      } catch (e) {
+        // Response body might be empty or not JSON
+      }
+    }
 
     if (!response.ok) {
       let errorMessage = 'An unknown error occurred.';
-      if (data.detail) {
+      if (data && data.detail) {
         if (Array.isArray(data.detail) && data.detail.length > 0 && data.detail[0].msg) {
           errorMessage = data.detail[0].msg;
         } else if (typeof data.detail === 'string') {
           errorMessage = data.detail;
         }
+      } else {
+        errorMessage = response.statusText || errorMessage;
       }
       throw new Error(errorMessage);
     }
@@ -134,6 +144,24 @@ export async function deletePlaylist(playlistId: number, token: string) {
   return apiFetch(`${API_BASE_URL}/api/playlists/${playlistId}`, {
     method: 'DELETE',
     headers: { 'Authorization': `Bearer ${token}` },
+  });
+}
+
+export async function removeTrackFromPlaylist(playlistId: number, trackId: number, token: string) {
+  return apiFetch(`${API_BASE_URL}/api/playlists/${playlistId}/tracks/${trackId}`, {
+    method: 'DELETE',
+    headers: { 'Authorization': `Bearer ${token}` },
+  });
+}
+
+export async function reorderPlaylistTracks(playlistId: number, trackIds: number[], token: string) {
+  return apiFetch(`${API_BASE_URL}/api/playlists/${playlistId}/tracks/reorder`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify({ track_ids: trackIds }),
   });
 }
 

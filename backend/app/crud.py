@@ -310,6 +310,35 @@ def update_playlist(db: Session, playlist_id: int, playlist_update: schemas.Play
     db.refresh(db_playlist)
     return get_playlist(db, db_playlist.id)
 
+def remove_track_from_playlist(db: Session, playlist_id: int, track_id: int):
+    db_track_association = db.query(models.PlaylistTrack).filter(
+        models.PlaylistTrack.playlist_id == playlist_id,
+        models.PlaylistTrack.track_id == track_id
+    ).first()
+    
+    if db_track_association:
+        db.delete(db_track_association)
+        db.commit()
+        return True
+    return False
+
+def reorder_playlist_tracks(db: Session, playlist_id: int, track_ids: List[int]):
+    # Fetch all associations for this playlist to minimize queries
+    tracks = db.query(models.PlaylistTrack).filter(
+        models.PlaylistTrack.playlist_id == playlist_id,
+        models.PlaylistTrack.track_id.in_(track_ids)
+    ).all()
+    
+    # Create a map for quick lookup
+    track_map = {t.track_id: t for t in tracks}
+    
+    for index, track_id in enumerate(track_ids):
+        if track_id in track_map:
+            track_map[track_id].position = index
+            
+    db.commit()
+    return True
+
 def delete_playlist(db: Session, playlist_id: int):
     db_playlist = db.query(models.Playlist).filter(models.Playlist.id == playlist_id).first()
     if db_playlist:
@@ -352,6 +381,9 @@ def unlike_playlist(db: Session, playlist_id: int, user_id: int):
 # --- Track CRUD ---
 
 def search_tracks(db: Session, query: str, skip: int = 0, limit: int = 100):
+    if query.isdigit():
+        return db.query(models.Track).filter(models.Track.track_id == int(query)).all()
+        
     search_query = f"%{query}%"
     return db.query(models.Track).filter(
         or_(

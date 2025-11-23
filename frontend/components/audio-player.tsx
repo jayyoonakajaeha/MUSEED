@@ -27,6 +27,7 @@ export function AudioPlayer() {
 
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
+  const [hasRecorded, setHasRecorded] = useState(false) // Added state to prevent duplicate recording
   
   const audioRef = useRef<HTMLAudioElement>(null);
   const progressRef = useRef<HTMLDivElement>(null)
@@ -64,6 +65,9 @@ export function AudioPlayer() {
       // Pause current playback
       audioRef.current.pause();
       
+      // Reset recording state for new track
+      setHasRecorded(false);
+      
       // Update source
       audioRef.current.src = `${API_URL}${currentTrack.audio_url}`;
       audioRef.current.load();
@@ -92,14 +96,16 @@ export function AudioPlayer() {
   
   // Record listening history
   useEffect(() => {
-    if (isPlaying && currentTime > 1 && currentTime < 2 && token && currentTrack?.track_id && currentTrack?.genre_toplevel) {
-      // console.log(`Recording listen for track: ${currentTrack.track_id}`);
+    // Only record if not already recorded for this track
+    if (!hasRecorded && isPlaying && currentTime > 5 && token && currentTrack?.track_id && currentTrack?.genre_toplevel) {
+      // Increased threshold to 5 seconds to be safe
       recordListen(
         { track_id: currentTrack.track_id.toString(), genre: currentTrack.genre_toplevel },
         token
       );
+      setHasRecorded(true); // Mark as recorded
     }
-  }, [currentTime, isPlaying, token, currentTrack]);
+  }, [currentTime, isPlaying, token, currentTrack, hasRecorded]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60)

@@ -1,13 +1,13 @@
 "use client"
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useState, useEffect } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Navigation } from "@/components/navigation"
 import { TrackSearch } from "@/components/track-search"
 import { FileUpload } from "@/components/file-upload"
 import { Sparkles, X, Music2 } from "lucide-react"
 import { useAuth } from "@/context/AuthContext"
-import { createPlaylistFromId, createPlaylistFromUpload } from "@/lib/api"
+import { createPlaylistFromId, createPlaylistFromUpload, searchTracks } from "@/lib/api"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 
@@ -28,6 +28,7 @@ interface UploadedFile {
 
 export default function CreatePlaylistPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { token } = useAuth()
 
   const [seedTrack, setSeedTrack] = useState<Track | null>(null)
@@ -35,6 +36,19 @@ export default function CreatePlaylistPage() {
   const [playlistName, setPlaylistName] = useState("")
   const [isGenerating, setIsGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+      const seedTrackId = searchParams.get('seedTrack');
+      if (seedTrackId && token) {
+          const fetchSeedTrack = async () => {
+              const result = await searchTracks(seedTrackId, token);
+              if (result.success && result.data.length > 0) {
+                  setSeedTrack(result.data[0]);
+              }
+          };
+          fetchSeedTrack();
+      }
+  }, [searchParams, token]);
 
   const handleSelectTrack = (track: Track) => {
     setSeedTrack(track)

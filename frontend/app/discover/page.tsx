@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Search, TrendingUp, Loader2, Music, ListMusic, Sparkles } from "lucide-react"
+import { Search, TrendingUp, Loader2, Music, ListMusic, Sparkles, Plus } from "lucide-react"
 import { PlaylistCard } from "@/components/playlist-card"
 import { useAuth } from "@/context/AuthContext"
 import { usePlayer } from "@/context/PlayerContext"
@@ -12,6 +12,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import Link from "next/link"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
+import { useRouter } from "next/navigation"
+import { Button } from "@/components/ui/button"
 
 // --- TYPE DEFINITIONS ---
 interface Playlist {
@@ -39,11 +41,11 @@ interface User {
   id: number;
   username: string;
   email: string;
+  profile_image_key?: string;
 }
 
 interface RecommendedUser extends User {
     similarity: number;
-    profile_image_key?: string;
 }
 
 interface SearchResults {
@@ -56,7 +58,7 @@ interface SearchResults {
 const UserCard = ({ user }: { user: User }) => (
   <Link href={`/user/${user.username}`} className="flex items-center gap-4 p-3 rounded-lg bg-surface hover:bg-surface-elevated border border-border transition-colors">
     <Avatar>
-      <AvatarImage src={`/profiles/Default.png`} />
+      <AvatarImage src={`/profiles/${user.profile_image_key || 'Default'}.png`} />
       <AvatarFallback>{user.username.substring(0, 2).toUpperCase()}</AvatarFallback>
     </Avatar>
     <div>
@@ -84,10 +86,10 @@ const RecommendedUserCard = ({ user }: { user: RecommendedUser }) => (
     </Link>
   );
 
-const TrackCard = ({ track, onClick }: { track: Track, onClick: () => void }) => (
+const TrackCard = ({ track, onClick, onCreate }: { track: Track, onClick: () => void, onCreate: () => void }) => (
     <div 
       onClick={onClick}
-      className="flex items-center gap-4 p-3 rounded-lg bg-surface hover:bg-surface-elevated border border-border transition-colors cursor-pointer group"
+      className="flex items-center gap-4 p-3 rounded-lg bg-surface hover:bg-surface-elevated border border-border transition-colors cursor-pointer group relative"
     >
         <div className="relative">
             <Avatar>
@@ -98,21 +100,36 @@ const TrackCard = ({ track, onClick }: { track: Track, onClick: () => void }) =>
                 <Music className="h-4 w-4 text-white" />
             </div>
         </div>
-        <div>
+        <div className="flex-1 min-w-0">
             <p className="font-semibold line-clamp-1">{track.title}</p>
             <p className="text-sm text-muted-foreground">{track.artist_name}</p>
+        </div>
+        
+        <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+            <Button
+                variant="ghost"
+                size="sm"
+                onClick={(e) => {
+                    e.stopPropagation();
+                    onCreate();
+                }}
+            >
+                <Plus className="h-4 w-4 mr-1" />
+                Create
+            </Button>
         </div>
     </div>
 );
 
 
 export default function DiscoverPage() {
+  const router = useRouter();
   const { token } = useAuth();
   const { playPlaylist } = usePlayer(); 
   
   // State for discover
   const [discoverPlaylists, setDiscoverPlaylists] = useState<Playlist[]>([]);
-  const [trendingPlaylists, setTrendingPlaylists] = useState<Playlist[]>([]); // Added trending state
+  const [trendingPlaylists, setTrendingPlaylists] = useState<Playlist[]>([]);
   const [recommendedUsers, setRecommendedUsers] = useState<RecommendedUser[]>([]);
   const [discoverLoading, setDiscoverLoading] = useState(true);
   const [discoverError, setDiscoverError] = useState<string | null>(null);
@@ -132,7 +149,7 @@ export default function DiscoverPage() {
         
         const [playlistResult, trendingResult, usersResult] = await Promise.all([
             getDiscoverPlaylists(token),
-            getTrendingPlaylists(token), // Fetch trending
+            getTrendingPlaylists(token), 
             getRecommendedUsers(token)
         ]);
 
@@ -191,6 +208,10 @@ export default function DiscoverPage() {
       }
   };
 
+  const handleCreateFromTrack = (trackId: number) => {
+      router.push(`/create?seedTrack=${trackId}`);
+  };
+
   const totalResults = searchResults.tracks.length + searchResults.playlists.length + searchResults.users.length;
 
   return (
@@ -244,6 +265,7 @@ export default function DiscoverPage() {
                             key={track.track_id} 
                             track={track} 
                             onClick={() => handlePlayTrack(index)}
+                            onCreate={() => handleCreateFromTrack(track.track_id)}
                         />
                       ))}
                     </div>
@@ -274,6 +296,7 @@ export default function DiscoverPage() {
                         key={track.track_id} 
                         track={track} 
                         onClick={() => handlePlayTrack(index)}
+                        onCreate={() => handleCreateFromTrack(track.track_id)}
                     />
                   ))}
                 </div>

@@ -68,7 +68,7 @@ class Playlist(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     owner = relationship("User", back_populates="playlists")
-    tracks = relationship("PlaylistTrack", back_populates="playlist", cascade="all, delete-orphan")
+    tracks = relationship("PlaylistTrack", back_populates="playlist", cascade="all, delete-orphan", order_by="PlaylistTrack.position")
     
     liked_by = relationship("User", secondary=playlist_likes, back_populates="liked_playlists")
 
@@ -79,6 +79,7 @@ class PlaylistTrack(Base):
     id = Column(Integer, primary_key=True, index=True)
     playlist_id = Column(Integer, ForeignKey("playlists.id"), nullable=False)
     track_id = Column(Integer, ForeignKey("tracks.track_id"), nullable=False)
+    position = Column(Integer, default=0) # Added position for ordering
     added_at = Column(DateTime(timezone=True), server_default=func.now())
 
     playlist = relationship("Playlist", back_populates="tracks")
