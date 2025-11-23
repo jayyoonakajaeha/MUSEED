@@ -4,6 +4,7 @@ from typing import List, Optional
 
 from .. import crud, schemas, models
 from ..dependencies import get_db, get_current_user, get_current_user_optional
+from ..ml import recommendation
 
 router = APIRouter(
     prefix="/api/users",
@@ -79,6 +80,31 @@ def search_for_users(
         return []
     users = crud.search_users(db, query=q, skip=skip, limit=limit)
     return users
+
+@router.get("/recommendations", response_model=List[schemas.UserRecommendation])
+def get_user_recommendations(
+    limit: int = 5,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """
+    Get recommended users based on listening history similarity.
+    """
+    similar_users_data = recommendation.get_similar_users(db, current_user.id, limit=limit)
+    
+    recommendations = []
+    for item in similar_users_data:
+        user = item["user"]
+        similarity = item["similarity"]
+        
+        recommendations.append(schemas.UserRecommendation(
+            id=user.id,
+            username=user.username,
+            profile_image_key=_get_profile_image_key(db, user),
+            similarity=similarity
+        ))
+        
+    return recommendations
 
 @router.get("/{username}", response_model=schemas.User)
 def read_user(

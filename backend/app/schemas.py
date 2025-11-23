@@ -83,6 +83,10 @@ class UserForList(BaseModel):
     username: str
     profile_image_key: str
 
+# Schema for User Recommendation
+class UserRecommendation(UserForList):
+    similarity: float
+
 # Schema for the owner field within a Playlist
 class PlaylistOwner(BaseModel):
     id: int

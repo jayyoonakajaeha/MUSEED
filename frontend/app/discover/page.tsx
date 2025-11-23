@@ -1,16 +1,17 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Search, TrendingUp, Loader2, Music, ListMusic } from "lucide-react"
+import { Search, TrendingUp, Loader2, Music, ListMusic, Sparkles } from "lucide-react"
 import { PlaylistCard } from "@/components/playlist-card"
 import { useAuth } from "@/context/AuthContext"
-import { usePlayer } from "@/context/PlayerContext" // Import usePlayer
-import { getDiscoverPlaylists, searchTracks, searchUsers, searchPlaylists } from "@/lib/api"
+import { usePlayer } from "@/context/PlayerContext"
+import { getDiscoverPlaylists, searchTracks, searchUsers, searchPlaylists, getRecommendedUsers } from "@/lib/api"
 import { toast } from "@/components/ui/use-toast"
 import { useDebounce } from "@/hooks/use-debounce"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import Link from "next/link"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Badge } from "@/components/ui/badge"
 
 // --- TYPE DEFINITIONS ---
 interface Playlist {
@@ -24,14 +25,13 @@ interface Playlist {
   coverImage?: string;
 }
 
-// Use a flexible interface that matches both API response and PlayerContext needs roughly
 interface Track {
   track_id: number;
   title: string;
   artist_name: string;
-  genre_toplevel: string | null; // Added to match PlayerContext
-  audio_url?: string; // Added to match PlayerContext
-  duration: number; // Added to match PlayerContext
+  genre_toplevel: string | null;
+  audio_url?: string;
+  duration: number;
   album_art_url?: string | null;
 }
 
@@ -39,6 +39,11 @@ interface User {
   id: number;
   username: string;
   email: string;
+}
+
+interface RecommendedUser extends User {
+    similarity: number;
+    profile_image_key?: string;
 }
 
 interface SearchResults {
@@ -61,7 +66,24 @@ const UserCard = ({ user }: { user: User }) => (
   </Link>
 );
 
-// Updated TrackCard to be clickable
+const RecommendedUserCard = ({ user }: { user: RecommendedUser }) => (
+    <Link href={`/user/${user.username}`} className="flex items-center gap-4 p-3 rounded-lg bg-surface hover:bg-surface-elevated border border-border transition-colors group">
+      <Avatar>
+        <AvatarImage src={`/profiles/${user.profile_image_key || 'Default'}.png`} />
+        <AvatarFallback>{user.username.substring(0, 2).toUpperCase()}</AvatarFallback>
+      </Avatar>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center justify-between">
+            <p className="font-semibold truncate">{user.username}</p>
+            <Badge variant="secondary" className="text-xs bg-primary/10 text-primary ml-2 whitespace-nowrap">
+                {Math.round(user.similarity * 100)}% Match
+            </Badge>
+        </div>
+        <p className="text-sm text-muted-foreground truncate">Based on listening history</p>
+      </div>
+    </Link>
+  );
+
 const TrackCard = ({ track, onClick }: { track: Track, onClick: () => void }) => (
     <div 
       onClick={onClick}
@@ -86,10 +108,11 @@ const TrackCard = ({ track, onClick }: { track: Track, onClick: () => void }) =>
 
 export default function DiscoverPage() {
   const { token } = useAuth();
-  const { playPlaylist } = usePlayer(); // Use the player context
+  const { playPlaylist } = usePlayer(); 
   
-  // State for discover playlists
+  // State for discover
   const [discoverPlaylists, setDiscoverPlaylists] = useState<Playlist[]>([]);
+  const [recommendedUsers, setRecommendedUsers] = useState<RecommendedUser[]>([]);
   const [discoverLoading, setDiscoverLoading] = useState(true);
   const [discoverError, setDiscoverError] = useState<string | null>(null);
 
@@ -99,29 +122,34 @@ export default function DiscoverPage() {
   const [searchResults, setSearchResults] = useState<SearchResults>({ tracks: [], playlists: [], users: [] });
   const [searchLoading, setSearchLoading] = useState(false);
 
-  // Fetch initial discover playlists
+  // Fetch initial discover data
   useEffect(() => {
     if (token) {
-      const fetchDiscoverPlaylists = async () => {
+      const fetchData = async () => {
         setDiscoverLoading(true);
         setDiscoverError(null);
-        const result = await getDiscoverPlaylists(token);
-        if (result.success) {
-          setDiscoverPlaylists(result.data);
+        
+        const [playlistResult, usersResult] = await Promise.all([
+            getDiscoverPlaylists(token),
+            getRecommendedUsers(token)
+        ]);
+
+        if (playlistResult.success) {
+          setDiscoverPlaylists(playlistResult.data);
         } else {
-          setDiscoverError(result.error || "Failed to load playlists.");
-          toast({
-            title: "Error",
-            description: result.error || "Failed to load playlists for discovery.",
-            variant: "destructive",
-          });
+          setDiscoverError(playlistResult.error || "Failed to load playlists.");
         }
+
+        if (usersResult.success) {
+            setRecommendedUsers(usersResult.data);
+        }
+
         setDiscoverLoading(false);
       };
-      fetchDiscoverPlaylists();
+      fetchData();
     } else {
       setDiscoverLoading(false);
-      setDiscoverError("You must be logged in to discover playlists.");
+      setDiscoverError("You must be logged in to discover content.");
     }
   }, [token]);
 
@@ -258,7 +286,7 @@ export default function DiscoverPage() {
           </div>
         ) : (
           // Discover Feed View
-          <div>
+          <div className="space-y-12">
             {discoverLoading ? (
               <div className="flex justify-center items-center py-24">
                 <Loader2 className="h-16 w-16 animate-spin text-primary" />
@@ -268,25 +296,43 @@ export default function DiscoverPage() {
                 <p className="text-destructive">{discoverError}</p>
               </div>
             ) : (
-              <div>
-                <div className="flex items-center gap-2 mb-6">
-                  <TrendingUp className="h-5 w-5 text-primary" />
-                  <h2 className="text-2xl font-bold">Recently Added</h2>
-                </div>
-                {discoverPlaylists.length > 0 ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                    {discoverPlaylists.map((playlist) => (
-                      <PlaylistCard key={playlist.id} playlist={playlist} />
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-12 bg-surface rounded-xl border border-border">
-                    <ListMusic className="h-12 w-12 text-muted-foreground/50 mx-auto mb-3" />
-                    <p className="text-muted-foreground">No public playlists found.</p>
-                    <p className="text-sm text-muted-foreground mt-1">Be the first to create one!</p>
-                  </div>
+              <>
+                {/* Recommended Users Section */}
+                {recommendedUsers.length > 0 && (
+                    <div>
+                        <div className="flex items-center gap-2 mb-6">
+                        <Sparkles className="h-5 w-5 text-primary" />
+                        <h2 className="text-2xl font-bold">Recommended for You</h2>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {recommendedUsers.map((user) => (
+                            <RecommendedUserCard key={user.id} user={user} />
+                        ))}
+                        </div>
+                    </div>
                 )}
-              </div>
+
+                {/* Recently Added Playlists Section */}
+                <div>
+                  <div className="flex items-center gap-2 mb-6">
+                    <TrendingUp className="h-5 w-5 text-primary" />
+                    <h2 className="text-2xl font-bold">Recently Added</h2>
+                  </div>
+                  {discoverPlaylists.length > 0 ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                      {discoverPlaylists.map((playlist) => (
+                        <PlaylistCard key={playlist.id} playlist={playlist} />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-12 bg-surface rounded-xl border border-border">
+                      <ListMusic className="h-12 w-12 text-muted-foreground/50 mx-auto mb-3" />
+                      <p className="text-muted-foreground">No public playlists found.</p>
+                      <p className="text-sm text-muted-foreground mt-1">Be the first to create one!</p>
+                    </div>
+                  )}
+                </div>
+              </>
             )}
           </div>
         )}
