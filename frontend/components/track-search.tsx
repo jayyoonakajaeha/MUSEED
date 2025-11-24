@@ -2,6 +2,8 @@ import { useState, useCallback } from "react"
 import { Search, Music2, Plus } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useDebouncedCallback } from 'use-debounce';
+import { searchTracks } from "@/lib/api"
+import { useAuth } from "@/context/AuthContext"
 
 interface Track {
   track_id: number;
@@ -14,11 +16,8 @@ interface Track {
 
 interface TrackSearchProps {
   onSelectTrack: (track: Track) => void
-  // The parent component might still use a different track type, let's be flexible
   selectedTracks?: any[] 
 }
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
 const getAlbumArtUrl = (url: string | null | undefined): string => {
   if (url && (url.includes('.jpg') || url.includes('.png') || url.includes('.gif'))) {
@@ -31,6 +30,7 @@ export function TrackSearch({ onSelectTrack, selectedTracks = [] }: TrackSearchP
   const [query, setQuery] = useState("")
   const [results, setResults] = useState<Track[]>([])
   const [isSearching, setIsSearching] = useState(false)
+  const { token } = useAuth()
 
   const fetchTracks = async (searchQuery: string) => {
     if (searchQuery.trim().length < 2) {
@@ -41,12 +41,15 @@ export function TrackSearch({ onSelectTrack, selectedTracks = [] }: TrackSearchP
     
     setIsSearching(true);
     try {
-      const response = await fetch(`${API_URL}/api/tracks/search?q=${encodeURIComponent(searchQuery)}`);
-      if (!response.ok) {
-        throw new Error('Network response was not ok');
+      // Use the API helper which handles relative URLs and auth headers
+      const result = await searchTracks(searchQuery, token || "");
+      
+      if (result.success) {
+        setResults(result.data);
+      } else {
+        console.error("Search failed:", result.error);
+        setResults([]);
       }
-      const data: Track[] = await response.json();
-      setResults(data);
     } catch (error) {
       console.error("Failed to fetch tracks:", error);
       setResults([]);
