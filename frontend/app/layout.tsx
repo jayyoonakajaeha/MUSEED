@@ -69,16 +69,18 @@ export default function RootLayout({
             </main>
 
                         <AudioPlayer />
-
-                        <Toaster />
-
-                      </PlayerProvider>
-
-                    </AuthProvider>
-
-                  </body>
-
-                </html>
+            <Toaster />
+          </PlayerProvider>
+        </AuthProvider>
+        <footer className="w-full bg-background/95 backdrop-blur border-t border-border py-6 pb-32 text-center text-sm text-muted-foreground">
+          <div className="container mx-auto px-4">
+            <p>&copy; {new Date().getFullYear()} MUSEED. All rights reserved.</p>
+            <p>Created by Jaeha Yoon (613jay@sju.ac.kr)</p>
+            <p>This project was single-handedly developed by Jaeha Yoon.</p>
+          </div>
+        </footer>
+      </body>
+    </html>
 
   )
 
