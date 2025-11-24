@@ -87,7 +87,9 @@ export function PlaylistCard({ playlist, isOwner = false, onDelete, onTogglePubl
     e.stopPropagation()
     e.preventDefault()
     if (tracks && tracks.length > 0) {
-      playPlaylist(tracks);
+      // Normalize tracks: check if they are nested in a 'track' property (PlaylistTrack) or direct (Track)
+      const playerTracks = tracks.map((t: any) => t.track ? t.track : t);
+      playPlaylist(playerTracks);
     } else {
       toast({
          title: "Empty Playlist",

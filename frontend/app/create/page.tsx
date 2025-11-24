@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Navigation } from "@/components/navigation"
 import { TrackSearch } from "@/components/track-search"
@@ -26,7 +26,7 @@ interface UploadedFile {
     file: File
 }
 
-export default function CreatePlaylistPage() {
+function CreatePlaylistForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { token } = useAuth()
@@ -102,7 +102,6 @@ export default function CreatePlaylistPage() {
 
   return (
     <>
-      <Navigation />
       <main className="container mx-auto px-4 pt-24 pb-32 md:pb-16">
         <div className="max-w-3xl mx-auto space-y-8">
           {/* Header */}
@@ -204,6 +203,17 @@ export default function CreatePlaylistPage() {
           {error && <p className="mt-4 text-center text-sm text-destructive">{error}</p>}
         </div>
       </main>
+    </>
+  )
+}
+
+export default function CreatePlaylistPage() {
+  return (
+    <>
+      <Navigation />
+      <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
+        <CreatePlaylistForm />
+      </Suspense>
     </>
   )
 }

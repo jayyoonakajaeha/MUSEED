@@ -11,7 +11,7 @@ router = APIRouter(
     tags=["auth"]
 )
 
-@router.post("/signup/", response_model=schemas.User)
+@router.post("/signup", response_model=schemas.User)
 def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
     if user.email:
         db_user_by_email = crud.get_user_by_email(db, email=user.email)

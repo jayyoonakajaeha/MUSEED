@@ -1,4 +1,4 @@
-const API_BASE_URL = 'http://localhost:8000';
+const API_BASE_URL = '';
 
 // --- Generic Fetch Helper ---
 async function apiFetch(url: string, options: RequestInit = {}) {
@@ -41,7 +41,7 @@ export async function getBackendStatus() {
 
 export async function registerUser(userData: { username: string; nickname: string; password: string }) {
   // email is no longer required for registration
-  return apiFetch(`${API_BASE_URL}/api/auth/signup/`, {
+  return apiFetch(`${API_BASE_URL}/api/auth/signup`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(userData),

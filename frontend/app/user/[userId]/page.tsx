@@ -98,7 +98,7 @@ const stringToColor = (str: string) => {
 
 export default function UserProfilePage() {
   const { userId } = useParams()
-  const { user: currentUser, token } = useAuth()
+  const { user: currentUser, token, isLoading: authLoading } = useAuth()
   const router = useRouter()
 
   const [profileUser, setProfileUser] = useState<UserProfile | null>(null)
@@ -117,7 +117,7 @@ export default function UserProfilePage() {
   const username = Array.isArray(userId) ? userId[0] : userId
 
   useEffect(() => {
-    if (!username) return
+    if (!username || authLoading) return
 
     const fetchAllData = async () => {
       setLoading(true)
@@ -164,7 +164,7 @@ export default function UserProfilePage() {
     }
 
     fetchAllData()
-  }, [username, token])
+  }, [username, token, authLoading])
 
   const handleFollow = async () => {
     if (!token || !profileUser) return;
@@ -278,7 +278,7 @@ export default function UserProfilePage() {
     setListLoading(false);
   };
 
-  if (loading) {
+  if (loading || authLoading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
         <Loader2 className="h-16 w-16 animate-spin text-primary" />

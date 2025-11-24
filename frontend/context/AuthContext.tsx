@@ -6,6 +6,7 @@ import { jwtDecode } from 'jwt-decode';
 interface AuthContextType {
   token: string | null;
   user: { username: string } | null;
+  isLoading: boolean;
   login: (token: string) => void;
   logout: () => void;
 }
@@ -15,6 +16,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
   const [user, setUser] = useState<{ username: string } | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const storedToken = localStorage.getItem('authToken');
@@ -33,6 +35,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         localStorage.removeItem('authToken');
       }
     }
+    setIsLoading(false);
   }, []);
 
   const login = (newToken: string) => {
@@ -53,7 +56,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ token, user, login, logout }}>
+    <AuthContext.Provider value={{ token, user, isLoading, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

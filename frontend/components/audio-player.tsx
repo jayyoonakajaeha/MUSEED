@@ -31,7 +31,7 @@ export function AudioPlayer() {
   
   const audioRef = useRef<HTMLAudioElement>(null);
   const progressRef = useRef<HTMLDivElement>(null)
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
 
   const getAlbumArtUrl = (url: string | null | undefined): string => {
     if (url && (url.includes('.jpg') || url.includes('.png') || url.includes('.gif'))) {
@@ -213,7 +213,7 @@ export function AudioPlayer() {
                 <ListMusic className="h-5 w-5" />
               </button>
             </SheetTrigger>
-            <SheetContent className="w-[400px] sm:w-[540px] border-l border-primary">
+            <SheetContent className="w-full sm:max-w-[540px] border-l border-primary">
               <SheetHeader className="mb-4">
                 <SheetTitle>Queue</SheetTitle>
               </SheetHeader>
@@ -252,7 +252,7 @@ export function AudioPlayer() {
             </SheetContent>
           </Sheet>
 
-          <div className="flex items-center gap-2">
+          <div className="hidden md:flex items-center gap-2">
             <button onClick={toggleMute} className="text-muted-foreground hover:text-foreground">
               {isMuted || volume === 0 ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
             </button>

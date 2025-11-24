@@ -20,7 +20,7 @@ export function GenreChart({ data }: GenreChartProps) {
           <Pie
             data={data}
             cx="50%"
-            cy="45%" // Balanced vertical position
+            cy="40%" // Moved up to make room for legend
             labelLine={false}
             label={({ name, percent }) => `${(percent * 100).toFixed(0)}%`}
             outerRadius={70} 
@@ -43,11 +43,15 @@ export function GenreChart({ data }: GenreChartProps) {
           />
           <Legend
             verticalAlign="bottom"
+            height={36}
             iconType="circle"
             wrapperStyle={{
               fontSize: '12px',
-              paddingTop: '0px', // Minimized spacing
-              bottom: '5px'
+              paddingTop: '10px',
+              width: '100%',
+              display: 'flex',
+              justifyContent: 'center',
+              flexWrap: 'wrap'
             }}
           />
         </PieChart>

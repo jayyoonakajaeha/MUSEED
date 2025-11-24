@@ -20,7 +20,7 @@ export function Navigation() {
   // Add profile link only if user is logged in for mobile nav
   const mobileNavItems = user
     ? [...navItems, { href: `/user/${user.username}`, label: "Profile", icon: User }]
-    : navItems
+    : [...navItems, { href: "/login", label: "Sign In", icon: User }]
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 border-b border-border bg-background/80 backdrop-blur-xl">
