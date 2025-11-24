@@ -167,7 +167,11 @@ function FeedSection() {
                   <div className="h-12 w-12 bg-muted rounded overflow-hidden flex-shrink-0">
                       {activity.target_playlist.tracks && activity.target_playlist.tracks.length > 0 ? (
                           <img 
-                            src={getAlbumArtUrl(activity.target_playlist.tracks[0].album_art_url)} 
+                            src={getAlbumArtUrl(
+                                activity.target_playlist.tracks[0].track 
+                                    ? activity.target_playlist.tracks[0].track.album_art_url 
+                                    : activity.target_playlist.tracks[0].album_art_url
+                            )} 
                             alt="Playlist Cover" 
                             className="w-full h-full object-cover"
                             onError={(e) => { e.currentTarget.src = '/dark-purple-music-waves.jpg'; }}

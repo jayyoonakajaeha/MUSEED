@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { Play, Heart, Share2, Music2, Trash2, Eye, EyeOff } from "lucide-react"
+import { Play, Heart, Share2, Music2, Trash2, Eye, EyeOff, Check } from "lucide-react"
 import { useState, useEffect } from "react"
 import { cn } from "@/lib/utils"
 import { useRouter } from "next/navigation"
@@ -62,6 +62,7 @@ export function PlaylistCard({ playlist, isOwner = false, onDelete, onTogglePubl
   const [liked, setLiked] = useState(liked_by_user)
   const [currentLikeCount, setCurrentLikeCount] = useState(likes_count)
   const [isPublicState, setIsPublicState] = useState(is_public);
+  const [isCopied, setIsCopied] = useState(false);
 
   useEffect(() => {
     setLiked(liked_by_user);
@@ -135,14 +136,26 @@ export function PlaylistCard({ playlist, isOwner = false, onDelete, onTogglePubl
     }
   }
 
-  const handleShare = (e: React.MouseEvent) => {
+  const handleShare = async (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
-    // Share functionality
-    toast({
-      title: "Feature Coming Soon",
-      description: "Share functionality is not yet implemented.",
-    });
+    
+    const shareUrl = `${window.location.origin}/playlist/${id}`;
+    try {
+        await navigator.clipboard.writeText(shareUrl);
+        setIsCopied(true);
+        toast({
+            title: "Link Copied",
+            description: "Playlist link copied to clipboard.",
+        });
+        setTimeout(() => setIsCopied(false), 2000);
+    } catch (err) {
+        toast({
+            title: "Share Failed",
+            description: "Could not copy link to clipboard.",
+            variant: "destructive",
+        });
+    }
   }
 
   const handleDeleteClick = (e: React.MouseEvent) => {
@@ -229,7 +242,7 @@ export function PlaylistCard({ playlist, isOwner = false, onDelete, onTogglePubl
             </button>
 
             <button onClick={handleShare} className="p-1 text-muted-foreground hover:text-foreground transition-colors">
-              <Share2 className="h-4 w-4" />
+              {isCopied ? <Check className="h-4 w-4 text-green-500" /> : <Share2 className="h-4 w-4" />}
             </button>
           </div>
         </div>

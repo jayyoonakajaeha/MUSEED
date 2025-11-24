@@ -15,7 +15,7 @@ import { PlayerProvider } from "@/context/PlayerContext"
 import { AudioPlayer } from "@/components/audio-player"
 
 import { PlayerAuthSync } from "@/components/player-auth-sync"
-
+import { Toaster } from "@/components/ui/toaster"
 
 
 const geistSans = Geist({
@@ -68,15 +68,17 @@ export default function RootLayout({
 
             </main>
 
-            <AudioPlayer />
+                        <AudioPlayer />
 
-          </PlayerProvider>
+                        <Toaster />
 
-        </AuthProvider>
+                      </PlayerProvider>
 
-      </body>
+                    </AuthProvider>
 
-    </html>
+                  </body>
+
+                </html>
 
   )
 

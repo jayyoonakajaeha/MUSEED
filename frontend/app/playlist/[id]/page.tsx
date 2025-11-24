@@ -86,6 +86,8 @@ export default function PlaylistPage() {
   const [likedState, setLikedState] = useState(false)
   const [currentLikeCount, setCurrentLikeCount] = useState(0)
   
+  const [isCopied, setIsCopied] = useState(false)
+
   // Edit Mode State
   const [isEditing, setIsEditing] = useState(false)
   const [editName, setEditName] = useState("")
@@ -275,6 +277,27 @@ export default function PlaylistPage() {
     }
   }
 
+  const handleShare = async () => {
+    if (!playlist) return;
+    const shareUrl = `${window.location.origin}/playlist/${playlist.id}`;
+    try {
+        await navigator.clipboard.writeText(shareUrl);
+        setIsCopied(true);
+        toast({
+            title: "Link Copied",
+            description: "Playlist link copied to clipboard.",
+        });
+        setTimeout(() => setIsCopied(false), 2000);
+    } catch (err) {
+        console.error("Failed to copy: ", err);
+        toast({
+            title: "Share Failed",
+            description: "Could not copy link to clipboard.",
+            variant: "destructive",
+        });
+    }
+  }
+
   const handleCreateFromTrack = (trackId: number) => {
     router.push(`/create?seedTrack=${trackId}`)
   }
@@ -423,9 +446,12 @@ export default function PlaylistPage() {
                     {likedState ? "Liked" : "Like"} ({currentLikeCount})
                     </button>
 
-                    <button className="flex items-center gap-2 px-6 py-3 bg-surface-elevated hover:bg-border border border-border rounded-lg font-medium transition-all">
-                    <Share2 className="h-5 w-5" />
-                    Share
+                    <button 
+                        onClick={handleShare}
+                        className="flex items-center gap-2 px-6 py-3 bg-surface-elevated hover:bg-border border border-border rounded-lg font-medium transition-all"
+                    >
+                    {isCopied ? <Check className="h-5 w-5 text-green-500" /> : <Share2 className="h-5 w-5" />}
+                    {isCopied ? "Copied!" : "Share"}
                     </button>
                 </>
             )}
