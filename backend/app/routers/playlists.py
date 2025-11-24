@@ -175,7 +175,7 @@ async def create_ai_playlist_from_upload(
     return new_playlist
 
 
-@router.post("/", response_model=schemas.Playlist)
+@router.post("", response_model=schemas.Playlist)
 def create_ai_playlist_from_id(
     playlist_in: schemas.PlaylistCreate,
     db: Session = Depends(get_db),

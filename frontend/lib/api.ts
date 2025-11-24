@@ -101,7 +101,7 @@ export async function getUserGenreStats(username: string, token: string) {
 }
 
 export async function createPlaylistFromId(name: string, seed_track_id: string, token: string) {
-  return apiFetch(`${API_BASE_URL}/api/playlists/`, {
+  return apiFetch(`${API_BASE_URL}/api/playlists`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
