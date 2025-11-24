@@ -72,6 +72,15 @@ class PlaylistOwner(BaseModel):
     class Config:
         from_attributes = True
 
+# --- Playlist Track Response Schema ---
+class PlaylistTrackResponse(BaseModel):
+    id: int
+    position: int
+    track: Track
+
+    class Config:
+        from_attributes = True
+
 # --- User For List Schema (Moved Up) ---
 class UserForList(BaseModel):
     id: int
@@ -100,7 +109,7 @@ class Playlist(PlaylistBase):
     owner_id: int
     created_at: datetime
     owner: PlaylistOwner
-    tracks: List[Track] = []
+    tracks: List[PlaylistTrackResponse] = []
     liked_by: List[PlaylistOwner] = []
     liked_by_user: bool = False
 
@@ -111,12 +120,13 @@ class Playlist(PlaylistBase):
 
     @field_validator('tracks', mode='before')
     @classmethod
-    def extract_tracks_from_playlist_tracks(cls, v):
+    def process_playlist_tracks(cls, v):
         if v and isinstance(v, list) and len(v) > 0 and isinstance(v[0], models.PlaylistTrack):
-            tracks = [pt.track for pt in v if pt.track is not None]
-            for track in tracks:
-                track.audio_url = f"/api/tracks/{track.track_id}/stream"
-            return tracks
+            # We need to return the PlaylistTrack objects, but first inject audio_url into the nested track
+            for pt in v:
+                if pt.track:
+                    pt.track.audio_url = f"/api/tracks/{pt.track.track_id}/stream"
+            return v
         return v
 
     class Config:

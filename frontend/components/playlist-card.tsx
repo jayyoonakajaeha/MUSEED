@@ -156,8 +156,18 @@ export function PlaylistCard({ playlist, isOwner = false, onDelete, onTogglePubl
     onTogglePublic?.(id, checked);
   };
 
-  // Use the first track's album art as the cover, if available
-  const dynamicCoverImage = coverImage || (tracks[0] && tracks[0].album_art_url);
+  // Use the first track's album art as the cover, if available.
+  // Handle both old schema (direct track object) and new schema (nested in .track)
+  const firstTrack = tracks[0];
+  let coverArt = coverImage;
+  
+  if (!coverArt && firstTrack) {
+      if (firstTrack.track && firstTrack.track.album_art_url) {
+          coverArt = firstTrack.track.album_art_url;
+      } else if (firstTrack.album_art_url) {
+          coverArt = firstTrack.album_art_url;
+      }
+  }
 
   const getAlbumArtUrl = (url: string | null | undefined): string => {
     if (url && (url.includes('.jpg') || url.includes('.png') || url.includes('.gif'))) {
@@ -174,7 +184,7 @@ export function PlaylistCard({ playlist, isOwner = false, onDelete, onTogglePubl
       {/* Cover Image */}
       <div className="relative aspect-square bg-surface-elevated overflow-hidden">
         <img 
-            src={getAlbumArtUrl(dynamicCoverImage)} 
+            src={getAlbumArtUrl(coverArt)} 
             alt={title} 
             className="w-full h-full object-cover"
             onError={(e) => { e.currentTarget.src = '/dark-purple-music-waves.jpg'; }}

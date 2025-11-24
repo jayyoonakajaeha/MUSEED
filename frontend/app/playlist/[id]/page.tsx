@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { useAuth } from "@/context/AuthContext"
 import { usePlayer } from "@/context/PlayerContext"
-import { getPlaylist, deletePlaylist, updatePlaylist, likePlaylist, unlikePlaylist, removeTrackFromPlaylist, reorderPlaylistTracks } from "@/lib/api"
+import { getPlaylist, deletePlaylist, updatePlaylist, likePlaylist, unlikePlaylist, removeTrackFromPlaylist, reorderPlaylistTracks, addTrackToPlaylist, removePlaylistEntry } from "@/lib/api"
 import { useParams, useRouter } from "next/navigation"
 import { Heart, Share2, Music2, Edit2, Check, Trash2, Lock, Globe, Plus, GripVertical, X } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -22,6 +22,7 @@ import { MoreVertical } from "lucide-react"
 import Link from "next/link"
 import { toast } from "@/components/ui/use-toast"
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
+import { TrackSearch } from "@/components/track-search" // Import TrackSearch
 
 // Updated interfaces to match backend schema
 interface Track {
@@ -32,6 +33,12 @@ interface Track {
   audio_url?: string;
   album_art_url?: string | null;
   duration: number;
+}
+
+interface PlaylistTrack {
+    id: number; // Unique association ID
+    position: number;
+    track: Track;
 }
 
 interface PlaylistOwner {
@@ -46,7 +53,7 @@ interface Playlist {
   is_public: boolean;
   created_at: string;
   owner: PlaylistOwner;
-  tracks: Track[];
+  tracks: PlaylistTrack[];
   likes_count: number;
   liked_by_user: boolean;
 }
@@ -140,7 +147,9 @@ export default function PlaylistPage() {
   const handleTrackClick = (index: number) => {
       if (isEditing) return; // Prevent play in edit mode
       if (playlist && playlist.tracks.length > 0) {
-          playPlaylist(playlist.tracks, index);
+          // Create a list of tracks for the player
+          const playerTracks = playlist.tracks.map(pt => pt.track);
+          playPlaylist(playerTracks, index);
       }
   }
 
@@ -206,14 +215,14 @@ export default function PlaylistPage() {
     }
   }
 
-  const handleDeleteTrack = async (trackId: number) => {
+  const handleDeleteTrack = async (entryId: number) => {
     if (!token || !playlist) return;
     if (window.confirm("Remove this track from playlist?")) {
-        const result = await removeTrackFromPlaylist(playlist.id, trackId, token);
+        const result = await removePlaylistEntry(playlist.id, entryId, token);
         if (result.success) {
             setPlaylist(prev => prev ? {
                 ...prev,
-                tracks: prev.tracks.filter(t => t.track_id !== trackId)
+                tracks: prev.tracks.filter(item => item.id !== entryId)
             } : null);
             toast({
                 title: "Success",
@@ -283,7 +292,8 @@ export default function PlaylistPage() {
 
     setPlaylist(prev => prev ? { ...prev, tracks: reorderedTracks } : null);
 
-    const newTrackIdsOrder = reorderedTracks.map(track => track.track_id);
+    // Currently mapping back to track_ids for compatibility with existing backend API
+    const newTrackIdsOrder = reorderedTracks.map(item => item.track.track_id);
     const apiResult = await reorderPlaylistTracks(playlist.id, newTrackIdsOrder, token);
 
     if (!apiResult.success) {
@@ -292,50 +302,86 @@ export default function PlaylistPage() {
         description: apiResult.error || "Failed to reorder tracks.",
         variant: "destructive",
       });
-      // Revert local state if API call fails
-      setPlaylist(playlist);
+      setPlaylist(playlist); // Revert
     }
   };
+
+  const handleAddTrack = async (track: { track_id: number }) => {
+    if (!token || !playlist) return;
+    
+    const result = await addTrackToPlaylist(playlist.id, track.track_id, token);
+    if (result.success) {
+        toast({
+            title: "Success",
+            description: "Track added to playlist.",
+        });
+        // Refresh playlist to get the full track object and updated list
+        const updatedPlaylist = await getPlaylist(playlist.id.toString(), token);
+        if (updatedPlaylist.success) {
+            setPlaylist(updatedPlaylist.data);
+        }
+    } else {
+        toast({
+            title: "Error",
+            description: result.error || "Failed to add track.",
+            variant: "destructive",
+        });
+    }
+  }
   
-  const totalDurationMinutes = Math.floor(playlist.tracks.reduce((acc, track) => acc + track.duration, 0) / 60)
+  const totalDurationMinutes = Math.floor((playlist?.tracks || []).reduce((acc, item) => acc + item.track.duration, 0) / 60)
+
+  // Determine playlist cover art from the first track
+  const playlistCoverArtUrl = getAlbumArtUrl(playlist.tracks.length > 0 ? playlist.tracks[0].track.album_art_url : null);
+
 
   return (
     <main className="container mx-auto px-4 pt-24 pb-32 md:pb-16">
       <div className="max-w-5xl mx-auto space-y-8">
         {/* Header */}
         <div className="space-y-6">
-          {/* Title & Edit Controls */}
-          <div className="flex flex-col gap-4">
-             {isEditing && isOwner ? (
-                <div className="space-y-4 p-4 bg-surface-elevated rounded-xl border border-border">
-                    <div className="space-y-2">
-                        <Label htmlFor="edit-name">Playlist Name</Label>
-                        <Input 
-                            id="edit-name"
-                            value={editName} 
-                            onChange={(e) => setEditName(e.target.value)} 
-                            className="text-xl font-bold"
-                        />
-                    </div>
-                    <div className="flex items-center space-x-4">
-                        <div className="flex items-center space-x-2">
-                            <Switch
-                                id="edit-public"
-                                checked={editIsPublic}
-                                onCheckedChange={setEditIsPublic}
+          {/* Cover Art and Title & Edit Controls */}
+          <div className="flex items-center gap-6">
+              <div className="flex-shrink-0 w-32 h-32 md:w-48 md:h-48 bg-surface rounded-xl overflow-hidden shadow-lg">
+                  <img 
+                      src={playlistCoverArtUrl} 
+                      alt="Playlist Cover" 
+                      className="w-full h-full object-cover"
+                      onError={(e) => { e.currentTarget.src = '/dark-purple-music-waves.jpg'; }}
+                  />
+              </div>
+              <div className="flex flex-col gap-4 flex-1">
+                 {isEditing && isOwner ? (
+                    <div className="space-y-4 p-4 bg-surface-elevated rounded-xl border border-border">
+                        <div className="space-y-2">
+                            <Label htmlFor="edit-name">Playlist Name</Label>
+                            <Input 
+                                id="edit-name"
+                                value={editName} 
+                                onChange={(e) => setEditName(e.target.value)} 
+                                className="text-xl font-bold"
                             />
-                            <Label htmlFor="edit-public">{editIsPublic ? "Public" : "Private"}</Label>
                         </div>
-                        <span className="text-sm text-muted-foreground">
-                            {editIsPublic ? "Anyone can see this playlist" : "Only you can see this playlist"}
-                        </span>
+                        <div className="flex items-center space-x-4">
+                            <div className="flex items-center space-x-2">
+                                <Switch
+                                    id="edit-public"
+                                    checked={editIsPublic}
+                                    onCheckedChange={setEditIsPublic}
+                                />
+                                <Label htmlFor="edit-public">{editIsPublic ? "Public" : "Private"}</Label>
+                            </div>
+                            <span className="text-sm text-muted-foreground">
+                                {editIsPublic ? "Anyone can see this playlist" : "Only you can see this playlist"}
+                            </span>
+                        </div>
                     </div>
-                </div>
-             ) : (
-                <div className="flex items-center gap-3">
-                    <h1 className="flex-1 text-4xl md:text-5xl font-bold text-balance">{playlist.name}</h1>
-                </div>
-             )}
+                 ) : (
+                    <div className="flex items-center gap-3">
+                        <h1 className="flex-1 text-4xl md:text-5xl font-bold text-balance">{playlist.name}</h1>
+                    </div>
+                 )}
+              </div>
           </div>
 
           {/* Metadata */}
@@ -432,15 +478,16 @@ export default function PlaylistPage() {
                   ref={provided.innerRef}
                   className="divide-y divide-border"
                 >
-                  {playlist.tracks.map((track, index) => {
+                  {playlist.tracks.map((item, index) => {
+                    const track = item.track;
                     const isCurrentTrack = currentTrack?.track_id === track.track_id;
                     
                     return (
                         <Draggable 
-                            key={track.track_id} 
-                            draggableId={track.track_id.toString()} 
+                            key={item.id} 
+                            draggableId={item.id.toString()} 
                             index={index}
-                            isDragDisabled={!isEditing} // Drag only in edit mode
+                            isDragDisabled={!isEditing} 
                         >
                             {(provided, snapshot) => (
                                 <div
@@ -512,7 +559,7 @@ export default function PlaylistPage() {
                                                 className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
                                                 onClick={(e) => {
                                                     e.stopPropagation();
-                                                    handleDeleteTrack(track.track_id);
+                                                    handleDeleteTrack(item.id); // Pass item.id (association ID)
                                                 }}
                                             >
                                                 <Trash2 className="h-5 w-5" />
@@ -544,6 +591,16 @@ export default function PlaylistPage() {
             </Droppable>
           </DragDropContext>
         </div>
+        
+        {/* Add Tracks Section ... */}
+        {isEditing && (
+            <div className="bg-surface border border-border rounded-xl overflow-hidden p-6 space-y-4">
+                <h2 className="text-xl font-semibold">Add Tracks</h2>
+                <p className="text-sm text-muted-foreground">Search for tracks to add to this playlist.</p>
+                <TrackSearch onSelectTrack={handleAddTrack} />
+            </div>
+        )}
+
       </div>
     </main>
   )

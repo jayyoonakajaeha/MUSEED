@@ -154,6 +154,20 @@ export async function removeTrackFromPlaylist(playlistId: number, trackId: numbe
   });
 }
 
+export async function addTrackToPlaylist(playlistId: number, trackId: number, token: string) {
+  return apiFetch(`${API_BASE_URL}/api/playlists/${playlistId}/tracks/${trackId}`, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${token}` },
+  });
+}
+
+export async function removePlaylistEntry(playlistId: number, entryId: number, token: string) {
+  return apiFetch(`${API_BASE_URL}/api/playlists/${playlistId}/entries/${entryId}`, {
+    method: 'DELETE',
+    headers: { 'Authorization': `Bearer ${token}` },
+  });
+}
+
 export async function reorderPlaylistTracks(playlistId: number, trackIds: number[], token: string) {
   return apiFetch(`${API_BASE_URL}/api/playlists/${playlistId}/tracks/reorder`, {
     method: 'PUT',

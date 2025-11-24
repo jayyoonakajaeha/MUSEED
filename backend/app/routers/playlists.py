@@ -262,6 +262,25 @@ def delete_playlist(
     crud.delete_playlist(db, playlist_id=playlist_id)
     return {"message": "Playlist deleted successfully"}
 
+@router.post("/{playlist_id}/tracks/{track_id}", status_code=status.HTTP_201_CREATED)
+def add_track_to_playlist(
+    playlist_id: int,
+    track_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    db_playlist = crud.get_playlist(db, playlist_id=playlist_id)
+    if db_playlist is None:
+        raise HTTPException(status_code=404, detail="Playlist not found")
+    if db_playlist.owner_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to modify this playlist")
+    
+    success = crud.add_track_to_playlist(db, playlist_id=playlist_id, track_id=track_id)
+    if not success:
+         raise HTTPException(status_code=400, detail="Failed to add track (track might not exist)")
+    
+    return {"message": "Track added to playlist"}
+
 @router.delete("/{playlist_id}/tracks/{track_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_track_from_playlist(
     playlist_id: int,
@@ -280,6 +299,25 @@ def delete_track_from_playlist(
         raise HTTPException(status_code=404, detail="Track not found in playlist")
     
     return {"message": "Track removed from playlist"}
+
+@router.delete("/{playlist_id}/entries/{entry_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_playlist_entry(
+    playlist_id: int,
+    entry_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    db_playlist = crud.get_playlist(db, playlist_id=playlist_id)
+    if db_playlist is None:
+        raise HTTPException(status_code=404, detail="Playlist not found")
+    if db_playlist.owner_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to modify this playlist")
+        
+    success = crud.remove_playlist_entry(db, playlist_id=playlist_id, entry_id=entry_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Playlist entry not found")
+    
+    return {"message": "Playlist entry removed successfully"}
 
 class ReorderTracksRequest(schemas.BaseModel):
     track_ids: List[int]

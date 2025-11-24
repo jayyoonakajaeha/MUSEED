@@ -15,7 +15,7 @@ interface Track {
 interface TrackSearchProps {
   onSelectTrack: (track: Track) => void
   // The parent component might still use a different track type, let's be flexible
-  selectedTracks: any[] 
+  selectedTracks?: any[] 
 }
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
@@ -27,7 +27,7 @@ const getAlbumArtUrl = (url: string | null | undefined): string => {
   return '/dark-purple-music-waves.jpg';
 }
 
-export function TrackSearch({ onSelectTrack, selectedTracks }: TrackSearchProps) {
+export function TrackSearch({ onSelectTrack, selectedTracks = [] }: TrackSearchProps) {
   const [query, setQuery] = useState("")
   const [results, setResults] = useState<Track[]>([])
   const [isSearching, setIsSearching] = useState(false)
@@ -65,8 +65,11 @@ export function TrackSearch({ onSelectTrack, selectedTracks }: TrackSearchProps)
   }
 
   const isTrackSelected = (trackId: number) => {
-    // The parent component uses `id` but our new type uses `track_id`
-    return selectedTracks.some((t) => t.id === trackId.toString());
+    if (!selectedTracks) return false;
+    return selectedTracks.some((t) => {
+        const tId = t.track_id || t.id;
+        return tId === trackId || tId === trackId.toString();
+    });
   }
 
   return (

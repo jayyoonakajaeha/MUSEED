@@ -310,6 +310,33 @@ def update_playlist(db: Session, playlist_id: int, playlist_update: schemas.Play
     db.refresh(db_playlist)
     return get_playlist(db, db_playlist.id)
 
+def add_track_to_playlist(db: Session, playlist_id: int, track_id: int):
+    # Check if track exists
+    track = db.query(models.Track).filter(models.Track.track_id == track_id).first()
+    if not track:
+        return False
+
+    # Calculate new position (last + 1)
+    last_position = db.query(func.max(models.PlaylistTrack.position)).filter(models.PlaylistTrack.playlist_id == playlist_id).scalar()
+    new_position = (last_position if last_position is not None else -1) + 1
+
+    db_track = models.PlaylistTrack(playlist_id=playlist_id, track_id=track_id, position=new_position)
+    db.add(db_track)
+    db.commit()
+    return True
+
+def remove_playlist_entry(db: Session, playlist_id: int, entry_id: int):
+    db_entry = db.query(models.PlaylistTrack).filter(
+        models.PlaylistTrack.playlist_id == playlist_id,
+        models.PlaylistTrack.id == entry_id
+    ).first()
+    
+    if db_entry:
+        db.delete(db_entry)
+        db.commit()
+        return True
+    return False
+
 def remove_track_from_playlist(db: Session, playlist_id: int, track_id: int):
     db_track_association = db.query(models.PlaylistTrack).filter(
         models.PlaylistTrack.playlist_id == playlist_id,
