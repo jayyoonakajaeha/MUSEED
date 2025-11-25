@@ -70,8 +70,15 @@ def get_similar_users(db: Session, current_user_id: int, limit: int = 5) -> List
     if current_user_vector is None:
         return []
 
-    # 2. Get all other users
-    other_users = db.query(models.User).filter(models.User.id != current_user_id).all()
+    # Get current user to find who they are following
+    current_user = db.query(models.User).filter(models.User.id == current_user_id).first()
+    following_ids = [u.id for u in current_user.following] if current_user else []
+
+    # 2. Get all other users (excluding self AND following)
+    other_users = db.query(models.User).filter(
+        models.User.id != current_user_id,
+        models.User.id.notin_(following_ids)
+    ).all()
     
     similarities = []
 

@@ -12,10 +12,12 @@ import { useRouter } from "next/navigation"
 import { Music } from "lucide-react"
 import { useAuth } from "@/context/AuthContext"
 import { loginUser } from "@/lib/api"
+import { useLanguage } from "@/context/LanguageContext"
 
 export default function LoginPage() {
   const router = useRouter()
   const { login } = useAuth()
+  const { t } = useLanguage()
   const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
@@ -47,25 +49,25 @@ export default function LoginPage() {
             </div>
           </div>
           <div>
-            <CardTitle className="text-2xl">Welcome back</CardTitle>
-            <CardDescription>Sign in to your MUSEED account</CardDescription>
+            <CardTitle className="text-2xl">{t.auth.welcomeBack}</CardTitle>
+            <CardDescription>{t.auth.loginSubtitle}</CardDescription>
           </div>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="username">User ID</Label>
+              <Label htmlFor="username">{t.auth.username}</Label>
               <Input
                 id="username"
                 type="text"
-                placeholder="Enter your User ID"
+                placeholder={t.auth.usernamePlaceholder}
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 required
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">{t.auth.password}</Label>
               <Input
                 id="password"
                 type="password"
@@ -77,13 +79,13 @@ export default function LoginPage() {
             </div>
             {error && <p className="text-sm text-destructive">{error}</p>}
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Signing in..." : "Sign In"}
+              {loading ? t.auth.signingIn : t.auth.signIn}
             </Button>
           </form>
           <div className="mt-6 text-center text-sm">
-            <span className="text-muted-foreground">Don't have an account? </span>
+            <span className="text-muted-foreground">{t.auth.noAccount} </span>
             <Link href="/signup" className="text-primary hover:underline">
-              Sign up
+              {t.auth.signUp}
             </Link>
           </div>
         </CardContent>

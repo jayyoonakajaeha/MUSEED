@@ -291,8 +291,9 @@ def create_playlist(db: Session, name: str, owner_id: int, track_ids: List[int])
     db.commit()
     db.refresh(db_playlist)
     
-    # Record Activity
-    create_activity(db, owner_id, models.ActivityType.CREATE_PLAYLIST, target_playlist_id=db_playlist.id)
+    # Record Activity only if user is logged in
+    if owner_id is not None:
+        create_activity(db, owner_id, models.ActivityType.CREATE_PLAYLIST, target_playlist_id=db_playlist.id)
     
     return get_playlist(db, db_playlist.id)
 

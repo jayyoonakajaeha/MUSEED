@@ -5,6 +5,7 @@ import type React from "react"
 import { useState, useCallback } from "react"
 import { Upload, X, FileAudio } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { useLanguage } from "@/context/LanguageContext"
 
 interface UploadedFile {
   id: string
@@ -21,6 +22,7 @@ interface FileUploadProps {
 
 export function FileUpload({ onFileUpload, uploadedFiles, onRemoveFile }: FileUploadProps) {
   const [isDragging, setIsDragging] = useState(false)
+  const { t } = useLanguage()
 
   const formatFileSize = (bytes: number) => {
     if (bytes < 1024) return bytes + " B"
@@ -90,10 +92,10 @@ export function FileUpload({ onFileUpload, uploadedFiles, onRemoveFile }: FileUp
             <Upload className="h-8 w-8 text-primary" />
           </div>
           <div>
-            <p className="text-lg font-semibold">Drop your audio files here</p>
-            <p className="text-sm text-muted-foreground mt-1">or click to browse</p>
+            <p className="text-lg font-semibold">{t?.fileUpload?.dropFiles || "Drop your audio files here"}</p>
+            <p className="text-sm text-muted-foreground mt-1">{t?.fileUpload?.clickToBrowse || "or click to browse"}</p>
           </div>
-          <p className="text-xs text-muted-foreground">Supports MP3, WAV, FLAC, and more</p>
+          <p className="text-xs text-muted-foreground">{t?.fileUpload?.supports || "Supports MP3, WAV, FLAC, and more"}</p>
         </div>
       </div>
 

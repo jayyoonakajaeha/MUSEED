@@ -16,6 +16,7 @@ import { AudioPlayer } from "@/components/audio-player"
 
 import { PlayerAuthSync } from "@/components/player-auth-sync"
 import { Toaster } from "@/components/ui/toaster"
+import { LanguageProvider } from "@/context/LanguageContext"
 
 
 const geistSans = Geist({
@@ -55,22 +56,23 @@ export default function RootLayout({
       <body className="min-h-screen bg-background text-foreground">
 
         <AuthProvider>
+          <LanguageProvider>
+            <PlayerProvider>
 
-          <PlayerProvider>
+              <PlayerAuthSync />
 
-            <PlayerAuthSync />
+              <Navigation />
 
-            <Navigation />
+              <main className="pb-24">
 
-            <main className="pb-24">
+                {children}
 
-              {children}
+              </main>
 
-            </main>
-
-                        <AudioPlayer />
-            <Toaster />
-          </PlayerProvider>
+              <AudioPlayer />
+              <Toaster />
+            </PlayerProvider>
+          </LanguageProvider>
         </AuthProvider>
         <footer className="w-full bg-background/95 backdrop-blur border-t border-border py-6 pb-32 text-center text-sm text-muted-foreground">
           <div className="container mx-auto px-4">

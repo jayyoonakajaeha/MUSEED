@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils"
 import { useDebouncedCallback } from 'use-debounce';
 import { searchTracks } from "@/lib/api"
 import { useAuth } from "@/context/AuthContext"
+import { useLanguage } from "@/context/LanguageContext"
 
 interface Track {
   track_id: number;
@@ -31,6 +32,7 @@ export function TrackSearch({ onSelectTrack, selectedTracks = [] }: TrackSearchP
   const [results, setResults] = useState<Track[]>([])
   const [isSearching, setIsSearching] = useState(false)
   const { token } = useAuth()
+  const { t } = useLanguage()
 
   const fetchTracks = async (searchQuery: string) => {
     if (searchQuery.trim().length < 2) {
@@ -41,7 +43,6 @@ export function TrackSearch({ onSelectTrack, selectedTracks = [] }: TrackSearchP
     
     setIsSearching(true);
     try {
-      // Use the API helper which handles relative URLs and auth headers
       const result = await searchTracks(searchQuery, token || "");
       
       if (result.success) {
@@ -63,7 +64,7 @@ export function TrackSearch({ onSelectTrack, selectedTracks = [] }: TrackSearchP
   const handleQueryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newQuery = e.target.value;
     setQuery(newQuery);
-    setIsSearching(true); // Show loading indicator immediately
+    setIsSearching(true);
     debouncedSearch(newQuery);
   }
 
@@ -77,12 +78,11 @@ export function TrackSearch({ onSelectTrack, selectedTracks = [] }: TrackSearchP
 
   return (
     <div className="space-y-4">
-      {/* Search Input */}
       <div className="relative">
         <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
         <input
           type="text"
-          placeholder="Search for tracks or artists..."
+          placeholder={t?.trackSearch?.placeholder || "Search for tracks..."}
           value={query}
           onChange={handleQueryChange}
           className="w-full pl-12 pr-4 py-4 bg-surface-elevated border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
@@ -90,7 +90,6 @@ export function TrackSearch({ onSelectTrack, selectedTracks = [] }: TrackSearchP
         {isSearching && <div className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 border-2 border-muted-foreground/30 border-t-primary rounded-full animate-spin" />}
       </div>
 
-      {/* Search Results */}
       {results.length > 0 && (
         <div className="space-y-2 max-h-96 overflow-y-auto">
           {results.map((track) => (
@@ -99,7 +98,7 @@ export function TrackSearch({ onSelectTrack, selectedTracks = [] }: TrackSearchP
               onClick={() => !isTrackSelected(track.track_id) && onSelectTrack(track)}
               disabled={isTrackSelected(track.track_id)}
               className={cn(
-                "w-full flex items-center gap-4 p-4 rounded-xl border transition-all text-left",
+                "w-full flex items-center gap-4 p-4 rounded-xl border transition-all text-left active:scale-[0.98] active:shadow-sm",
                 isTrackSelected(track.track_id)
                   ? "bg-surface border-border opacity-50 cursor-not-allowed"
                   : "bg-surface-elevated border-border hover:border-primary/50 hover:bg-surface",
@@ -129,7 +128,7 @@ export function TrackSearch({ onSelectTrack, selectedTracks = [] }: TrackSearchP
       {query && results.length === 0 && !isSearching && (
         <div className="text-center py-12 text-muted-foreground">
           <Music2 className="h-12 w-12 mx-auto mb-4 opacity-30" />
-          <p>No tracks found. Try a different search term.</p>
+          <p>{t?.trackSearch?.noResults || "No tracks found."}</p>
         </div>
       )}
     </div>

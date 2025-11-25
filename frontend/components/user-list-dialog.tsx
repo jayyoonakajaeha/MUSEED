@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dialog"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { useLanguage } from "@/context/LanguageContext"
 
 interface User {
   id: number;
@@ -25,6 +26,8 @@ interface UserListDialogProps {
 }
 
 export function UserListDialog({ isOpen, onClose, title, users }: UserListDialogProps) {
+  const { t } = useLanguage()
+
   const getProfileImageUrl = (key: string) => {
     // A simple check to see if the key corresponds to a known genre image file.
     // This list could be expanded or managed more dynamically.
@@ -46,7 +49,7 @@ export function UserListDialog({ isOpen, onClose, title, users }: UserListDialog
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>
-            {users.length > 0 ? `Total ${users.length} users.` : "No users to display."}
+            {users.length > 0 ? `${t?.common?.totalUsers || "Total users:"} ${users.length}` : (t?.common?.noUsers || "No users to display.")}
           </DialogDescription>
         </DialogHeader>
         <ScrollArea className="h-[300px] w-full">
@@ -72,7 +75,7 @@ export function UserListDialog({ isOpen, onClose, title, users }: UserListDialog
               ))
             ) : (
               <div className="flex items-center justify-center h-full text-muted-foreground">
-                <p>Nothing to see here.</p>
+                <p>{t?.common?.nothingHere || "Nothing to see here."}</p>
               </div>
             )}
           </div>

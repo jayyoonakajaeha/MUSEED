@@ -2,32 +2,46 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Music, Home, PlusCircle, User, Search, LogOut } from "lucide-react"
+import { Music, Home, PlusCircle, User, Search, LogOut, LogIn, Languages } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/context/AuthContext"
+import { useLanguage } from "@/context/LanguageContext"
 import { Button } from "@/components/ui/button"
 
 export function Navigation() {
   const pathname = usePathname()
   const { user, logout } = useAuth()
+  const { language, setLanguage, t } = useLanguage()
+
+  const toggleLanguage = () => {
+    setLanguage(language === 'en' ? 'ko' : 'en');
+  }
 
   const navItems = [
-    { href: "/dashboard", label: "Home", icon: Home },
-    { href: "/discover", label: "Discover", icon: Search },
-    { href: "/create", label: "Create", icon: PlusCircle },
+    { href: "/dashboard", label: t.nav.home, icon: Home },
+    { href: "/discover", label: t.nav.discover, icon: Search },
+    { href: "/create", label: t.nav.create, icon: PlusCircle },
   ]
 
-  // Add profile link only if user is logged in for mobile nav
+  // Add profile link and language toggle for mobile nav
   const mobileNavItems = user
-    ? [...navItems, { href: `/user/${user.username}`, label: "Profile", icon: User }]
-    : [...navItems, { href: "/login", label: "Sign In", icon: User }]
+    ? [
+        ...navItems, 
+        { href: `/user/${user.username}`, label: t.nav.profile, icon: User },
+        { label: language === 'en' ? 'KO' : 'EN', icon: Languages, action: toggleLanguage }
+      ]
+    : [ // 비로그인 상태일 때도 언어 선택 버튼 포함
+        ...navItems, 
+        { href: "/login", label: t.nav.signIn, icon: User },
+        { label: language === 'en' ? 'KO' : 'EN', icon: Languages, action: toggleLanguage }
+      ]
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 border-b border-border bg-background/80 backdrop-blur-xl">
       <div className="container mx-auto px-4">
         <div className="flex h-16 items-center justify-between">
           {/* Logo */}
-          <Link href="/dashboard" className="flex items-center gap-2 group">
+          <Link href="/dashboard" className="flex items-center gap-2 group flex-shrink-0">
             <div className="relative">
               <Music className="h-7 w-7 text-primary transition-transform group-hover:scale-110" />
               <div className="absolute inset-0 bg-primary/20 blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -36,7 +50,7 @@ export function Navigation() {
           </Link>
 
           {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center gap-1">
+          <div className="hidden lg:flex items-center gap-1 flex-1 justify-center">
             {navItems.map((item) => {
               const Icon = item.icon
               const isActive = pathname === item.href
@@ -59,16 +73,20 @@ export function Navigation() {
             })}
           </div>
 
-          {/* User Actions */}
-          <div className="flex items-center gap-3">
+          {/* User Actions (Desktop) */}
+          <div className="hidden lg:flex items-center gap-3 flex-shrink-0">
+            <Button variant="ghost" size="sm" onClick={toggleLanguage} className="text-muted-foreground hover:text-foreground">
+                <Languages className="h-4 w-4 mr-1" />
+                {language === 'en' ? 'KO' : 'EN'}
+            </Button>
             {user ? (
               <>
                 <Link
                   href={`/user/${user.username}`}
-                  className="hidden md:flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all text-muted-foreground hover:text-foreground hover:bg-surface-elevated"
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all text-muted-foreground hover:text-foreground hover:bg-surface-elevated"
                 >
                   <User className="h-4 w-4" />
-                  Profile
+                  {t.nav.profile}
                 </Link>
                 <Button
                   variant="ghost"
@@ -77,47 +95,73 @@ export function Navigation() {
                   className="flex items-center gap-2 text-muted-foreground hover:text-foreground"
                 >
                   <LogOut className="h-4 w-4" />
-                  Sign Out
+                  {t.nav.signOut}
                 </Button>
               </>
             ) : (
               <>
                 <Link
                   href="/login"
-                  className="hidden md:flex items-center gap-2 px-4 py-2 rounded-lg bg-surface-elevated hover:bg-border text-sm font-medium transition-all"
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-surface-elevated hover:bg-border text-sm font-medium transition-all"
                 >
-                  Sign In
+                  {t.nav.signIn}
                 </Link>
                 <Link
                   href="/signup"
                   className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-medium transition-all"
                 >
-                  Get Started
+                  {t.nav.getStarted}
                 </Link>
               </>
+            )}
+          </div>
+          
+          {/* Mobile Header Actions (Login/Logout) */}
+          <div className="flex lg:hidden items-center gap-1 flex-shrink-0">
+            {!user ? (
+                <Link href="/login" className="text-muted-foreground hover:text-foreground p-2 active:scale-95 transition-transform">
+                    <LogIn className="h-6 w-6" />
+                </Link>
+            ) : (
+                <button onClick={logout} className="text-muted-foreground hover:text-foreground p-2 active:scale-95 transition-transform">
+                    <LogOut className="h-6 w-6" />
+                </button>
             )}
           </div>
         </div>
       </div>
 
-      {/* Mobile Navigation */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 border-t border-border bg-background/95 backdrop-blur-xl">
-        <div className="flex items-center justify-around px-4 py-3">
-          {mobileNavItems.map((item) => {
+      {/* Mobile Navigation (Bottom) */}
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 border-t border-border bg-background/95 backdrop-blur-xl pb-safe">
+        <div className="flex items-center justify-around px-2 py-2">
+          {mobileNavItems.map((item, index) => {
             const Icon = item.icon
-            const isActive = pathname === item.href
+            const isActive = item.href ? pathname === item.href : false
+
+            if (item.action) {
+                return (
+                    <button
+                        key={index}
+                        onClick={item.action}
+                        className="flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-all active:scale-90 text-muted-foreground hover:text-foreground"
+                    >
+                        <Icon className="h-5 w-5" />
+                        <span className="text-[10px] font-medium">{item.label}</span>
+                    </button>
+                )
+            }
 
             return (
               <Link
-                key={item.href}
-                href={item.href}
+                key={index}
+                href={item.href!}
                 className={cn(
-                  "flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-all",
+                  "flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-all active:scale-90",
                   isActive ? "text-primary" : "text-muted-foreground",
                 )}
               >
                 <Icon className="h-5 w-5" />
-                <span className="text-xs font-medium">{item.label}</span>
+                <span className="text-[10px] font-medium">{item.label}</span>
               </Link>
             )
           })}

@@ -10,6 +10,7 @@ import { useAuth } from "@/context/AuthContext"
 import { createPlaylistFromId, createPlaylistFromUpload, searchTracks } from "@/lib/api"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { useLanguage } from "@/context/LanguageContext"
 
 interface Track {
   track_id: number;
@@ -30,6 +31,7 @@ function CreatePlaylistForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { token } = useAuth()
+  const { t } = useLanguage()
 
   const [seedTrack, setSeedTrack] = useState<Track | null>(null)
   const [uploadedFile, setUploadedFile] = useState<UploadedFile | null>(null)
@@ -69,9 +71,13 @@ function CreatePlaylistForm() {
   }
 
   const handleGeneratePlaylist = async () => {
-    if ((!seedTrack && !uploadedFile) || !playlistName || !token) {
-        setError("Please select a seed track or upload a file, and provide a playlist name.");
-        return
+    if (!playlistName) {
+        setError("Please provide a playlist name.");
+        return;
+    }
+    if (!seedTrack && !uploadedFile) {
+        setError("Please select a seed track or upload a file.");
+        return;
     }
 
     setIsGenerating(true)
@@ -79,12 +85,10 @@ function CreatePlaylistForm() {
 
     let result;
     if (seedTrack) {
-        // The createPlaylistFromId function expects a string ID
-        result = await createPlaylistFromId(playlistName, seedTrack.track_id.toString(), token)
+        result = await createPlaylistFromId(playlistName, seedTrack.track_id.toString(), token || null)
     } else if (uploadedFile) {
-        result = await createPlaylistFromUpload(playlistName, uploadedFile.file, token)
+        result = await createPlaylistFromUpload(playlistName, uploadedFile.file, token || null)
     } else {
-        // Should not happen due to the initial check
         setError("No seed selected.");
         setIsGenerating(false);
         return;
@@ -92,7 +96,13 @@ function CreatePlaylistForm() {
 
     setIsGenerating(false)
     if (result.success) {
-        router.push(`/playlist/${result.data.id}`)
+        if (!token) {
+            // Guest playlist created
+            alert("플레이리스트가 생성되었지만, 로그인하지 않아 계정에 저장되지 않습니다. 지금 로그인하여 저장하세요!");
+            router.push(`/playlist/${result.data.id}`);
+        } else {
+            router.push(`/playlist/${result.data.id}`);
+        }
     } else {
         setError(result.error || "Failed to generate playlist.")
     }
@@ -108,12 +118,11 @@ function CreatePlaylistForm() {
           <div className="text-center space-y-4">
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-surface-elevated border border-border text-sm">
               <Sparkles className="h-4 w-4 text-primary" />
-              <span className="text-muted-foreground">AI Playlist Generator</span>
+              <span className="text-muted-foreground">{t.create.badge}</span>
             </div>
-            <h1 className="text-4xl md:text-5xl font-bold text-balance">Create Your Playlist</h1>
+            <h1 className="text-4xl md:text-5xl font-bold text-balance">{t.create.title}</h1>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto text-balance">
-              Select a seed track from our library or upload your own audio file. Our AI will generate a personalized
-              playlist based on your selection.
+              {t.create.description}
             </p>
           </div>
 
@@ -121,7 +130,7 @@ function CreatePlaylistForm() {
           {hasSeed && (
             <div className="bg-surface-elevated border border-border rounded-xl p-6 space-y-4">
               <h3 className="font-semibold text-lg">
-                Selected Seed
+                {t.create.selectedSeed}
               </h3>
               {seedTrack && (
                 <div className="flex items-center gap-4 p-3 bg-surface rounded-lg border border-border">
@@ -146,10 +155,10 @@ function CreatePlaylistForm() {
               
               {/* Playlist Name Input */}
               <div className="space-y-2 pt-4">
-                <Label htmlFor="playlist-name" className="font-semibold text-lg">Playlist Name</Label>
+                <Label htmlFor="playlist-name" className="font-semibold text-lg">{t.create.playlistName}</Label>
                 <Input 
                     id="playlist-name"
-                    placeholder="My Awesome AI Playlist"
+                    placeholder={t.create.playlistNamePlaceholder}
                     value={playlistName}
                     onChange={(e) => setPlaylistName(e.target.value)}
                     className="text-base"
@@ -162,8 +171,8 @@ function CreatePlaylistForm() {
           {!hasSeed && (
             <div className="bg-surface border border-border rounded-xl p-6 space-y-4">
               <div>
-                <h2 className="text-xl font-semibold mb-2">Search Library</h2>
-                <p className="text-sm text-muted-foreground">Find a track from our FMA music library to use as a seed</p>
+                <h2 className="text-xl font-semibold mb-2">{t.create.searchLibrary}</h2>
+                <p className="text-sm text-muted-foreground">{t.create.searchLibraryDesc}</p>
               </div>
               <TrackSearch onSelectTrack={handleSelectTrack} selectedTracks={seedTrack ? [seedTrack] : []} />
             </div>
@@ -173,8 +182,8 @@ function CreatePlaylistForm() {
           {!hasSeed && (
             <div className="bg-surface border border-border rounded-xl p-6 space-y-4">
                 <div>
-                    <h2 className="text-xl font-semibold mb-2">Upload Your Music</h2>
-                    <p className="text-sm text-muted-foreground">Upload your own audio file to use as a seed track</p>
+                    <h2 className="text-xl font-semibold mb-2">{t.create.uploadMusic}</h2>
+                    <p className="text-sm text-muted-foreground">{t.create.uploadMusicDesc}</p>
                 </div>
                 <FileUpload onFileUpload={handleFileUpload} uploadedFiles={uploadedFile ? [uploadedFile] : []} onRemoveFile={handleRemoveFile} />
             </div>
@@ -190,12 +199,12 @@ function CreatePlaylistForm() {
               {isGenerating ? (
                 <>
                   <div className="h-5 w-5 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
-                  Generating...
+                  {t.create.generating}
                 </>
               ) : (
                 <>
                   <Sparkles className="h-5 w-5" />
-                  Generate Playlist
+                  {t.create.generateButton}
                 </>
               )}
             </button>

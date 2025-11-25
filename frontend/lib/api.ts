@@ -39,6 +39,10 @@ export async function getBackendStatus() {
   return apiFetch(`${API_BASE_URL}/api/status`);
 }
 
+export async function getGlobalStats() {
+  return apiFetch(`${API_BASE_URL}/api/stats`);
+}
+
 export async function registerUser(userData: { username: string; nickname: string; password: string }) {
   // email is no longer required for registration
   return apiFetch(`${API_BASE_URL}/api/auth/signup`, {
@@ -94,10 +98,12 @@ export async function getUserStats(username: string) {
   return apiFetch(`${API_BASE_URL}/api/users/${username}/stats`);
 }
 
-export async function getUserGenreStats(username: string, token: string) {
-  return apiFetch(`${API_BASE_URL}/api/users/${username}/genre-stats`, {
-    headers: { 'Authorization': `Bearer ${token}` },
-  });
+export async function getUserGenreStats(username: string, token: string | null) {
+  const headers: HeadersInit = {};
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  return apiFetch(`${API_BASE_URL}/api/users/${username}/genre-stats`, { headers });
 }
 
 export async function createPlaylistFromId(name: string, seed_track_id: string, token: string) {
@@ -204,16 +210,20 @@ export async function unlikePlaylist(playlistId: number, token:string) {
   });
 }
 
-export async function getUserCreatedPlaylists(username: string, token: string) {
-  return apiFetch(`${API_BASE_URL}/api/users/${username}/playlists`, {
-    headers: { 'Authorization': `Bearer ${token}` },
-  });
+export async function getUserCreatedPlaylists(username: string, token: string | null) {
+  const headers: HeadersInit = {};
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  return apiFetch(`${API_BASE_URL}/api/users/${username}/playlists`, { headers });
 }
 
-export async function getUserLikedPlaylists(username: string, token: string) {
-  return apiFetch(`${API_BASE_URL}/api/users/${username}/likes`, {
-    headers: { 'Authorization': `Bearer ${token}` },
-  });
+export async function getUserLikedPlaylists(username: string, token: string | null) {
+  const headers: HeadersInit = {};
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  return apiFetch(`${API_BASE_URL}/api/users/${username}/likes`, { headers });
 }
 
 export async function getDiscoverPlaylists(token: string) {

@@ -14,6 +14,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
+import { useLanguage } from "@/context/LanguageContext"
 
 // --- TYPE DEFINITIONS ---
 interface Playlist {
@@ -68,20 +69,20 @@ const UserCard = ({ user }: { user: User }) => (
   </Link>
 );
 
-const RecommendedUserCard = ({ user }: { user: RecommendedUser }) => (
-    <Link href={`/user/${user.username}`} className="flex items-center gap-4 p-3 rounded-lg bg-surface hover:bg-surface-elevated border border-border transition-colors group">
+const RecommendedUserCard = ({ user, t }: { user: RecommendedUser, t: any }) => (
+    <Link href={`/user/${user.username}`} className="flex items-center gap-4 p-3 rounded-lg bg-surface hover:bg-surface-elevated border border-border transition-colors group active:scale-[0.98]">
       <Avatar>
         <AvatarImage src={`/profiles/${user.profile_image_key || 'Default'}.png`} />
         <AvatarFallback>{user.username.substring(0, 2).toUpperCase()}</AvatarFallback>
       </Avatar>
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between">
-            <p className="font-semibold truncate">{user.username}</p>
+            <p className="font-semibold truncate">{user.nickname}</p>
             <Badge variant="secondary" className="text-xs bg-primary/10 text-primary ml-2 whitespace-nowrap">
-                {Math.round(user.similarity * 100)}% Match
+                {Math.round(user.similarity * 100)}% {t.discover.match}
             </Badge>
         </div>
-        <p className="text-sm text-muted-foreground truncate">Based on listening history</p>
+        <p className="text-xs text-muted-foreground truncate">@{user.username}</p>
       </div>
     </Link>
   );
@@ -126,6 +127,7 @@ export default function DiscoverPage() {
   const router = useRouter();
   const { token } = useAuth();
   const { playPlaylist } = usePlayer(); 
+  const { t } = useLanguage();
   
   // State for discover
   const [discoverPlaylists, setDiscoverPlaylists] = useState<Playlist[]>([]);
@@ -142,53 +144,58 @@ export default function DiscoverPage() {
 
   // Fetch initial discover data
   useEffect(() => {
-    if (token) {
-      const fetchData = async () => {
-        setDiscoverLoading(true);
-        setDiscoverError(null);
-        
-        const [playlistResult, trendingResult, usersResult] = await Promise.all([
-            getDiscoverPlaylists(token),
-            getTrendingPlaylists(token), 
-            getRecommendedUsers(token)
-        ]);
+    const fetchData = async () => {
+      setDiscoverLoading(true);
+      setDiscoverError(null);
+      
+      // Determine what to fetch based on auth status
+      const promises = [
+          getDiscoverPlaylists(token || ""),
+          getTrendingPlaylists(token || "")
+      ];
+      
+      if (token) {
+          promises.push(getRecommendedUsers(token));
+      }
 
-        if (playlistResult.success) {
-          setDiscoverPlaylists(playlistResult.data);
-        } else {
-          setDiscoverError(playlistResult.error || "Failed to load playlists.");
-        }
+      const results = await Promise.all(promises);
+      const playlistResult = results[0];
+      const trendingResult = results[1];
+      const usersResult = token ? results[2] : { success: true, data: [] }; // Default empty for guests
 
-        if (trendingResult.success) {
-            setTrendingPlaylists(trendingResult.data);
-        }
+      if (playlistResult.success) {
+        setDiscoverPlaylists(playlistResult.data);
+      } else {
+        setDiscoverError(playlistResult.error || "Failed to load playlists.");
+      }
 
-        if (usersResult.success) {
-            setRecommendedUsers(usersResult.data);
-        }
+      if (trendingResult.success) {
+          setTrendingPlaylists(trendingResult.data);
+      }
 
-        setDiscoverLoading(false);
-      };
-      fetchData();
-    } else {
+      if (usersResult.success) {
+          setRecommendedUsers(usersResult.data);
+      }
+
       setDiscoverLoading(false);
-      setDiscoverError("You must be logged in to discover content.");
-    }
+    };
+    fetchData();
   }, [token]);
 
   // Effect for handling search
   useEffect(() => {
-    if (!token || !debouncedSearchQuery || debouncedSearchQuery.length < 2) {
+    if (!debouncedSearchQuery || debouncedSearchQuery.length < 2) {
       setSearchResults({ tracks: [], playlists: [], users: [] });
       return;
     }
 
     const performSearch = async () => {
       setSearchLoading(true);
+      const safeToken = token || "";
       const [tracksResult, playlistsResult, usersResult] = await Promise.all([
-        searchTracks(debouncedSearchQuery, token),
-        searchPlaylists(debouncedSearchQuery, token),
-        searchUsers(debouncedSearchQuery, token),
+        searchTracks(debouncedSearchQuery, safeToken),
+        searchPlaylists(debouncedSearchQuery, safeToken),
+        searchUsers(debouncedSearchQuery, safeToken),
       ]);
 
       setSearchResults({
@@ -219,9 +226,9 @@ export default function DiscoverPage() {
       <div className="container mx-auto px-4 max-w-7xl">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-4xl md:text-5xl font-bold mb-3 text-balance">Discover</h1>
+          <h1 className="text-4xl md:text-5xl font-bold mb-3 text-balance">{t.discover.title}</h1>
           <p className="text-lg text-muted-foreground text-pretty">
-            Find new tracks, playlists, and people
+            {t.discover.subtitle}
           </p>
         </div>
 
@@ -231,7 +238,7 @@ export default function DiscoverPage() {
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
             <input
               type="text"
-              placeholder="Search for tracks, playlists, or users..."
+              placeholder={t.discover.searchPlaceholder}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-12 pr-4 py-4 bg-surface border border-border rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
@@ -243,13 +250,13 @@ export default function DiscoverPage() {
         {debouncedSearchQuery ? (
           // Search Results View
           <div className="space-y-8">
-            <h2 className="text-3xl font-bold">Search Results ({searchLoading ? <Loader2 className="inline h-6 w-6 animate-spin" /> : totalResults})</h2>
+            <h2 className="text-3xl font-bold">{t.discover.searchResults} ({searchLoading ? <Loader2 className="inline h-6 w-6 animate-spin" /> : totalResults})</h2>
             <Tabs defaultValue="all">
               <TabsList>
-                <TabsTrigger value="all">All</TabsTrigger>
-                <TabsTrigger value="tracks">Tracks ({searchResults.tracks.length})</TabsTrigger>
-                <TabsTrigger value="playlists">Playlists ({searchResults.playlists.length})</TabsTrigger>
-                <TabsTrigger value="users">Users ({searchResults.users.length})</TabsTrigger>
+                <TabsTrigger value="all">{t.discover.all}</TabsTrigger>
+                <TabsTrigger value="tracks">{t.discover.tracks} ({searchResults.tracks.length})</TabsTrigger>
+                <TabsTrigger value="playlists">{t.discover.playlists} ({searchResults.playlists.length})</TabsTrigger>
+                <TabsTrigger value="users">{t.discover.users} ({searchResults.users.length})</TabsTrigger>
               </TabsList>
               
               <TabsContent value="all" className="mt-6">
@@ -258,7 +265,7 @@ export default function DiscoverPage() {
                 
                 {searchResults.tracks.length > 0 && (
                   <div className="space-y-4">
-                    <h3 className="text-xl font-semibold">Tracks</h3>
+                    <h3 className="text-xl font-semibold">{t.discover.tracks}</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {searchResults.tracks.map((track, index) => (
                         <TrackCard 
@@ -273,7 +280,7 @@ export default function DiscoverPage() {
                 )}
                 {searchResults.playlists.length > 0 && (
                   <div className="space-y-4 mt-8">
-                    <h3 className="text-xl font-semibold">Playlists</h3>
+                    <h3 className="text-xl font-semibold">{t.discover.playlists}</h3>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                       {searchResults.playlists.map(playlist => <PlaylistCard key={playlist.id} playlist={playlist} />)}
                     </div>
@@ -281,7 +288,7 @@ export default function DiscoverPage() {
                 )}
                 {searchResults.users.length > 0 && (
                   <div className="space-y-4 mt-8">
-                    <h3 className="text-xl font-semibold">Users</h3>
+                    <h3 className="text-xl font-semibold">{t.discover.users}</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {searchResults.users.map(user => <UserCard key={user.id} user={user} />)}
                     </div>
@@ -331,11 +338,11 @@ export default function DiscoverPage() {
                     <div>
                         <div className="flex items-center gap-2 mb-6">
                         <Sparkles className="h-5 w-5 text-primary" />
-                        <h2 className="text-2xl font-bold">Recommended for You</h2>
+                        <h2 className="text-2xl font-bold">{t.discover.recommended}</h2>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {recommendedUsers.map((user) => (
-                            <RecommendedUserCard key={user.id} user={user} />
+                            <RecommendedUserCard key={user.id} user={user} t={t} />
                         ))}
                         </div>
                     </div>
@@ -346,7 +353,7 @@ export default function DiscoverPage() {
                   <div>
                     <div className="flex items-center gap-2 mb-6">
                       <TrendingUp className="h-5 w-5 text-primary" />
-                      <h2 className="text-2xl font-bold">Trending Now</h2>
+                      <h2 className="text-2xl font-bold">{t.discover.trending}</h2>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                       {trendingPlaylists.map((playlist) => (
@@ -360,7 +367,7 @@ export default function DiscoverPage() {
                 <div>
                   <div className="flex items-center gap-2 mb-6">
                     <TrendingUp className="h-5 w-5 text-primary" />
-                    <h2 className="text-2xl font-bold">Recently Added</h2>
+                    <h2 className="text-2xl font-bold">{t.discover.recentlyAdded}</h2>
                   </div>
                   {discoverPlaylists.length > 0 ? (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
@@ -371,8 +378,8 @@ export default function DiscoverPage() {
                   ) : (
                     <div className="text-center py-12 bg-surface rounded-xl border border-border">
                       <ListMusic className="h-12 w-12 text-muted-foreground/50 mx-auto mb-3" />
-                      <p className="text-muted-foreground">No public playlists found.</p>
-                      <p className="text-sm text-muted-foreground mt-1">Be the first to create one!</p>
+                      <p className="text-muted-foreground">{t.discover.noPlaylists}</p>
+                      <p className="text-sm text-muted-foreground mt-1">{t.discover.beFirst}</p>
                     </div>
                   )}
                 </div>

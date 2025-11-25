@@ -13,7 +13,7 @@ import torchaudio
 from muq import MuQ
 
 from .. import crud, schemas, models
-from ..dependencies import get_db, get_current_user
+from ..dependencies import get_db, get_current_user, get_current_user_optional
 
 # --- Router Setup ---
 router = APIRouter(
@@ -93,7 +93,7 @@ def get_discover_playlists(
     skip: int = 0,
     limit: int = 20,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user)
+    current_user: Optional[models.User] = Depends(get_current_user_optional)
 ):
     """
     Get a list of public playlists for the discover page.
@@ -101,21 +101,27 @@ def get_discover_playlists(
     playlists = crud.get_public_playlists(db, skip=skip, limit=limit)
     # Dynamically set whether the current user has liked each playlist
     for playlist in playlists:
-        playlist.liked_by_user = current_user in playlist.liked_by
+        if current_user:
+            playlist.liked_by_user = current_user in playlist.liked_by
+        else:
+            playlist.liked_by_user = False
     return playlists
 
 @router.get("/trending", response_model=List[schemas.Playlist])
 def get_trending_playlists(
     limit: int = 10,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user)
+    current_user: Optional[models.User] = Depends(get_current_user_optional)
 ):
     """
     Get trending playlists (most likes in last 24h).
     """
     playlists = crud.get_trending_playlists(db, limit=limit)
     for playlist in playlists:
-        playlist.liked_by_user = current_user in playlist.liked_by
+        if current_user:
+            playlist.liked_by_user = current_user in playlist.liked_by
+        else:
+            playlist.liked_by_user = False
     return playlists
 
 @router.get("/search", response_model=List[schemas.Playlist])
@@ -124,13 +130,16 @@ def search_for_playlists(
     skip: int = 0,
     limit: int = 10,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user)
+    current_user: Optional[models.User] = Depends(get_current_user_optional)
 ):
     if q is None:
         return []
     playlists = crud.search_playlists(db, query=q, skip=skip, limit=limit)
     for playlist in playlists:
-        playlist.liked_by_user = current_user in playlist.liked_by
+        if current_user:
+            playlist.liked_by_user = current_user in playlist.liked_by
+        else:
+            playlist.liked_by_user = False
     return playlists
 
 @router.post("/upload", response_model=schemas.Playlist)
@@ -138,7 +147,7 @@ async def create_ai_playlist_from_upload(
     name: str = Form(...),
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user)
+    current_user: Optional[models.User] = Depends(get_current_user_optional)
 ):
     if not all([faiss_index, track_id_map, model]):
         raise HTTPException(
@@ -165,10 +174,11 @@ async def create_ai_playlist_from_upload(
     found_track_ids = [track_id_map[i] for i in indices[0]]
 
     # 5. Create the playlist in the database
+    owner_id = current_user.id if current_user else None
     new_playlist = crud.create_playlist(
         db=db,
         name=name,
-        owner_id=current_user.id,
+        owner_id=owner_id,
         track_ids=found_track_ids
     )
 
@@ -179,7 +189,7 @@ async def create_ai_playlist_from_upload(
 def create_ai_playlist_from_id(
     playlist_in: schemas.PlaylistCreate,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user)
+    current_user: Optional[models.User] = Depends(get_current_user_optional)
 ):
     if not faiss_index or not track_id_map:
         raise HTTPException(
@@ -227,23 +237,27 @@ def create_ai_playlist_from_id(
     final_track_ids = final_track_ids[:NUM_RECOMMENDATIONS + 1]
 
     # 5. Create the playlist in the database
+    owner_id = current_user.id if current_user else None
     new_playlist = crud.create_playlist(
         db=db,
         name=playlist_in.name,
-        owner_id=current_user.id,
+        owner_id=owner_id,
         track_ids=final_track_ids
     )
 
     return new_playlist
 
 @router.get("/{playlist_id}", response_model=schemas.Playlist)
-def read_playlist(playlist_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+def read_playlist(playlist_id: int, db: Session = Depends(get_db), current_user: Optional[models.User] = Depends(get_current_user_optional)):
     db_playlist = crud.get_playlist(db, playlist_id=playlist_id)
     if db_playlist is None:
         raise HTTPException(status_code=404, detail="Playlist not found")
     
     # Set liked_by_user dynamically
-    db_playlist.liked_by_user = current_user in db_playlist.liked_by
+    if current_user:
+        db_playlist.liked_by_user = current_user in db_playlist.liked_by
+    else:
+        db_playlist.liked_by_user = False
     
     return db_playlist
 

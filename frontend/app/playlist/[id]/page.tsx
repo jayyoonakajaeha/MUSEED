@@ -22,9 +22,9 @@ import { MoreVertical } from "lucide-react"
 import Link from "next/link"
 import { toast } from "@/components/ui/use-toast"
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
-import { TrackSearch } from "@/components/track-search" // Import TrackSearch
+import { TrackSearch } from "@/components/track-search"
+import { useLanguage } from "@/context/LanguageContext"
 
-// Updated interfaces to match backend schema
 interface Track {
   track_id: number;
   title: string;
@@ -36,7 +36,7 @@ interface Track {
 }
 
 interface PlaylistTrack {
-    id: number; // Unique association ID
+    id: number;
     position: number;
     track: Track;
 }
@@ -52,7 +52,7 @@ interface Playlist {
   owner_id: number;
   is_public: boolean;
   created_at: string;
-  owner: PlaylistOwner;
+  owner?: PlaylistOwner; // Optional for guest playlists
   tracks: PlaylistTrack[];
   likes_count: number;
   liked_by_user: boolean;
@@ -65,7 +65,6 @@ const getAlbumArtUrl = (url: string | null | undefined): string => {
   return '/dark-purple-music-waves.jpg';
 }
 
-// Helper to reorder array
 const reorder = (list: any[], startIndex: number, endIndex: number) => {
     const result = Array.from(list);
     const [removed] = result.splice(startIndex, 1);
@@ -78,6 +77,7 @@ export default function PlaylistPage() {
   const params = useParams()
   const { user, token } = useAuth()
   const { playPlaylist, currentTrack } = usePlayer() 
+  const { t } = useLanguage()
 
   const [playlist, setPlaylist] = useState<Playlist | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -88,7 +88,6 @@ export default function PlaylistPage() {
   
   const [isCopied, setIsCopied] = useState(false)
 
-  // Edit Mode State
   const [isEditing, setIsEditing] = useState(false)
   const [editName, setEditName] = useState("")
   const [editIsPublic, setEditIsPublic] = useState(false)
@@ -97,18 +96,17 @@ export default function PlaylistPage() {
   const playlistId = params.id as string;
 
   useEffect(() => {
-    if (!playlistId || !token) return;
+    if (!playlistId) return;
 
     const fetchPlaylist = async () => {
       setIsLoading(true)
       setError(null)
       try {
-        const result = await getPlaylist(playlistId, token)
+        const result = await getPlaylist(playlistId, token || "")
         if (result.success) {
           setPlaylist(result.data)
           setLikedState(result.data.liked_by_user)
           setCurrentLikeCount(result.data.likes_count)
-          // Initialize edit state
           setEditName(result.data.name)
           setEditIsPublic(result.data.is_public)
         } else {
@@ -124,7 +122,6 @@ export default function PlaylistPage() {
     fetchPlaylist()
   }, [playlistId, token])
 
-  // Update edit state when playlist changes
   useEffect(() => {
     if (playlist) {
       setEditName(playlist.name)
@@ -133,23 +130,22 @@ export default function PlaylistPage() {
   }, [playlist])
 
   if (isLoading) {
-    return <div className="min-h-screen flex items-center justify-center">Loading playlist...</div>
+    return <div className="min-h-screen flex items-center justify-center">{t?.common?.loading || "Loading..."}</div>
   }
 
   if (error) {
-    return <div className="min-h-screen flex items-center justify-center text-destructive">Error: {error}</div>
+    return <div className="min-h-screen flex items-center justify-center text-destructive">{t?.common?.error || "Error"}: {error}</div>
   }
 
   if (!playlist) {
     return <div className="min-h-screen flex items-center justify-center">Playlist not found.</div>
   }
 
-  const isOwner = user?.username === playlist.owner.username
+  const isOwner = !!(user && playlist.owner && user.username === playlist.owner.username)
   
   const handleTrackClick = (index: number) => {
-      if (isEditing) return; // Prevent play in edit mode
+      if (isEditing) return;
       if (playlist && playlist.tracks.length > 0) {
-          // Create a list of tracks for the player
           const playerTracks = playlist.tracks.map(pt => pt.track);
           playPlaylist(playerTracks, index);
       }
@@ -157,10 +153,8 @@ export default function PlaylistPage() {
 
   const toggleEditMode = async () => {
       if (isEditing) {
-          // Saving changes
           await handleSaveChanges();
       } else {
-          // Entering edit mode
           setIsEditing(true);
       }
   }
@@ -169,7 +163,6 @@ export default function PlaylistPage() {
     if (!token || !playlist) return;
     setIsSaving(true);
     
-    // Only update if changes were made
     if (playlist.name !== editName || playlist.is_public !== editIsPublic) {
         const result = await updatePlaylist(playlist.id, { 
             name: editName, 
@@ -179,17 +172,16 @@ export default function PlaylistPage() {
         if (result.success) {
             setPlaylist(result.data);
             toast({
-                title: "Success",
-                description: "Playlist updated successfully.",
+                title: t.toast.success,
+                description: t.toast.playlistUpdatedDesc,
             });
             setIsEditing(false);
         } else {
             toast({
-                title: "Error",
+                title: t.toast.error,
                 description: result.error || "Failed to update playlist.",
                 variant: "destructive",
             });
-            // Don't exit edit mode on error
         }
     } else {
         setIsEditing(false);
@@ -199,17 +191,17 @@ export default function PlaylistPage() {
 
   const handleDelete = async () => {
     if (!token || !playlist) return;
-    if (window.confirm("Are you sure you want to delete this playlist? This action cannot be undone.")) {
+    if (window.confirm(t?.playlist?.confirmDelete || "Are you sure you want to delete this playlist? This action cannot be undone.")) {
       const result = await deletePlaylist(playlist.id, token);
       if (result.success) {
         toast({
-          title: "Success",
-          description: "Playlist deleted successfully.",
+          title: t.toast.success,
+          description: t.toast.playlistDeletedDesc,
         });
         router.push(`/user/${user?.username}`);
       } else {
         toast({
-          title: "Error",
+          title: t.toast.error,
           description: result.error || "Failed to delete playlist.",
           variant: "destructive",
         });
@@ -219,7 +211,7 @@ export default function PlaylistPage() {
 
   const handleDeleteTrack = async (entryId: number) => {
     if (!token || !playlist) return;
-    if (window.confirm("Remove this track from playlist?")) {
+    if (window.confirm(t?.playlist?.confirmRemoveTrack || "Remove this track from playlist?")) {
         const result = await removePlaylistEntry(playlist.id, entryId, token);
         if (result.success) {
             setPlaylist(prev => prev ? {
@@ -227,12 +219,12 @@ export default function PlaylistPage() {
                 tracks: prev.tracks.filter(item => item.id !== entryId)
             } : null);
             toast({
-                title: "Success",
-                description: "Track removed from playlist.",
+                title: t.toast.success,
+                description: t.toast.trackRemovedDesc,
             });
         } else {
             toast({
-                title: "Error",
+                title: t.toast.error,
                 description: result.error || "Failed to remove track.",
                 variant: "destructive",
             });
@@ -243,8 +235,8 @@ export default function PlaylistPage() {
   const handleLike = async () => {
     if (!token || !playlist) {
       toast({
-        title: "Login Required",
-        description: "You must be logged in to like playlists.",
+        title: t.toast.loginRequired,
+        description: t.toast.loginRequiredDesc,
         variant: "destructive",
       });
       return;
@@ -257,7 +249,7 @@ export default function PlaylistPage() {
         setCurrentLikeCount(prev => prev - 1);
       } else {
         toast({
-          title: "Error",
+          title: t.toast.error,
           description: result.error || "Failed to unlike playlist.",
           variant: "destructive",
         });
@@ -269,7 +261,7 @@ export default function PlaylistPage() {
         setCurrentLikeCount(prev => prev + 1);
       } else {
         toast({
-          title: "Error",
+          title: t.toast.error,
           description: result.error || "Failed to like playlist.",
           variant: "destructive",
         });
@@ -284,15 +276,14 @@ export default function PlaylistPage() {
         await navigator.clipboard.writeText(shareUrl);
         setIsCopied(true);
         toast({
-            title: "Link Copied",
-            description: "Playlist link copied to clipboard.",
+            title: t.toast.linkCopied,
+            description: t.toast.linkCopiedDesc,
         });
         setTimeout(() => setIsCopied(false), 2000);
     } catch (err) {
-        console.error("Failed to copy: ", err);
         toast({
-            title: "Share Failed",
-            description: "Could not copy link to clipboard.",
+            title: t.toast.shareFailed,
+            description: t.toast.shareFailedDesc,
             variant: "destructive",
         });
     }
@@ -315,17 +306,16 @@ export default function PlaylistPage() {
 
     setPlaylist(prev => prev ? { ...prev, tracks: reorderedTracks } : null);
 
-    // Currently mapping back to track_ids for compatibility with existing backend API
     const newTrackIdsOrder = reorderedTracks.map(item => item.track.track_id);
     const apiResult = await reorderPlaylistTracks(playlist.id, newTrackIdsOrder, token);
 
     if (!apiResult.success) {
       toast({
-        title: "Error",
+        title: t.toast.error,
         description: apiResult.error || "Failed to reorder tracks.",
         variant: "destructive",
       });
-      setPlaylist(playlist); // Revert
+      setPlaylist(playlist);
     }
   };
 
@@ -335,17 +325,16 @@ export default function PlaylistPage() {
     const result = await addTrackToPlaylist(playlist.id, track.track_id, token);
     if (result.success) {
         toast({
-            title: "Success",
-            description: "Track added to playlist.",
+            title: t.toast.success,
+            description: t.toast.trackAddedDesc,
         });
-        // Refresh playlist to get the full track object and updated list
-        const updatedPlaylist = await getPlaylist(playlist.id.toString(), token);
+        const updatedPlaylist = await getPlaylist(playlist.id.toString(), token || "");
         if (updatedPlaylist.success) {
             setPlaylist(updatedPlaylist.data);
         }
     } else {
         toast({
-            title: "Error",
+            title: t.toast.error,
             description: result.error || "Failed to add track.",
             variant: "destructive",
         });
@@ -353,17 +342,13 @@ export default function PlaylistPage() {
   }
   
   const totalDurationMinutes = Math.floor((playlist?.tracks || []).reduce((acc, item) => acc + item.track.duration, 0) / 60)
-
-  // Determine playlist cover art from the first track
   const playlistCoverArtUrl = getAlbumArtUrl(playlist.tracks.length > 0 ? playlist.tracks[0].track.album_art_url : null);
-
 
   return (
     <main className="container mx-auto px-4 pt-24 pb-32 md:pb-16">
       <div className="max-w-5xl mx-auto space-y-8">
         {/* Header */}
         <div className="space-y-6">
-          {/* Cover Art and Title & Edit Controls */}
           <div className="flex items-center gap-6">
               <div className="flex-shrink-0 w-32 h-32 md:w-48 md:h-48 bg-surface rounded-xl overflow-hidden shadow-lg">
                   <img 
@@ -377,7 +362,7 @@ export default function PlaylistPage() {
                  {isEditing && isOwner ? (
                     <div className="space-y-4 p-4 bg-surface-elevated rounded-xl border border-border">
                         <div className="space-y-2">
-                            <Label htmlFor="edit-name">Playlist Name</Label>
+                            <Label htmlFor="edit-name">{t?.playlist?.playlistName || "Playlist Name"}</Label>
                             <Input 
                                 id="edit-name"
                                 value={editName} 
@@ -392,7 +377,7 @@ export default function PlaylistPage() {
                                     checked={editIsPublic}
                                     onCheckedChange={setEditIsPublic}
                                 />
-                                <Label htmlFor="edit-public">{editIsPublic ? "Public" : "Private"}</Label>
+                                <Label htmlFor="edit-public">{editIsPublic ? (t?.playlist?.public || "Public") : (t?.playlist?.private || "Private")}</Label>
                             </div>
                             <span className="text-sm text-muted-foreground">
                                 {editIsPublic ? "Anyone can see this playlist" : "Only you can see this playlist"}
@@ -410,20 +395,24 @@ export default function PlaylistPage() {
           {/* Metadata */}
           {!isEditing && (
             <div className="flex items-center gap-4 text-muted-foreground">
-                <Link href={`/user/${playlist.owner.username}`} className="hover:text-primary transition-colors">
-                by {playlist.owner.username}
-                </Link>
+                {playlist.owner ? (
+                    <Link href={`/user/${playlist.owner.username}`} className="hover:text-primary transition-colors">
+                    {t?.playlist?.by || "by"} {playlist.owner.username}
+                    </Link>
+                ) : (
+                    <span>{t?.playlist?.by || "by"} {t?.playlist?.guest || "Guest"}</span>
+                )}
                 <span>•</span>
                 <div className="flex items-center gap-1">
                 {playlist.is_public ? <Globe className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
-                <span>{playlist.is_public ? "Public" : "Private"}</span>
+                <span>{playlist.is_public ? (t?.playlist?.public || "Public") : (t?.playlist?.private || "Private")}</span>
                 </div>
                 <span>•</span>
-                <span>{playlist.tracks.length} tracks</span>
+                <span>{playlist.tracks.length} {t?.playlist?.tracks || "tracks"}</span>
                 {totalDurationMinutes > 0 && (
                 <>
                     <span>•</span>
-                    <span>{totalDurationMinutes} minutes</span>
+                    <span>{totalDurationMinutes} {t?.playlist?.minutes || "minutes"}</span>
                 </>
                 )}
             </div>
@@ -443,7 +432,7 @@ export default function PlaylistPage() {
                     )}
                     >
                     <Heart className={cn("h-5 w-5", likedState && "fill-current")} />
-                    {likedState ? "Liked" : "Like"} ({currentLikeCount})
+                    {likedState ? (t?.playlist?.liked || "Liked") : (t?.playlist?.like || "Like")} ({currentLikeCount})
                     </button>
 
                     <button 
@@ -451,7 +440,7 @@ export default function PlaylistPage() {
                         className="flex items-center gap-2 px-6 py-3 bg-surface-elevated hover:bg-border border border-border rounded-lg font-medium transition-all"
                     >
                     {isCopied ? <Check className="h-5 w-5 text-green-500" /> : <Share2 className="h-5 w-5" />}
-                    {isCopied ? "Copied!" : "Share"}
+                    {isCopied ? (t?.playlist?.copied || "Copied!") : (t?.playlist?.share || "Share")}
                     </button>
                 </>
             )}
@@ -467,7 +456,7 @@ export default function PlaylistPage() {
                     variant={isEditing ? "default" : "ghost"}
                 >
                     {isEditing ? <Check className="h-5 w-5" /> : <Edit2 className="h-5 w-5" />}
-                    {isEditing ? "Done" : "Edit Playlist"}
+                    {isEditing ? (t?.common?.save || "Save") : (t?.playlist?.editPlaylist || "Edit Playlist")}
                 </Button>
 
                 {!isEditing && (
@@ -480,7 +469,7 @@ export default function PlaylistPage() {
                         <DropdownMenuContent align="end" className="w-48">
                         <DropdownMenuItem onClick={handleDelete} className="text-destructive focus:text-destructive">
                             <Trash2 className="h-4 w-4 mr-2" />
-                            Delete Playlist
+                            {t?.playlist?.deletePlaylist || "Delete Playlist"}
                         </DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>
@@ -493,8 +482,8 @@ export default function PlaylistPage() {
         {/* Track List */}
         <div className="bg-surface border border-border rounded-xl overflow-hidden">
           <div className="p-6 border-b border-border flex justify-between items-center">
-            <h2 className="text-xl font-semibold">Tracks</h2>
-            {isEditing && <span className="text-sm text-muted-foreground">Drag to reorder</span>}
+            <h2 className="text-xl font-semibold">{t?.playlist?.tracks || "Tracks"}</h2>
+            {isEditing && <span className="text-sm text-muted-foreground">{t?.playlist?.dragReorder || "Drag to reorder"}</span>}
           </div>
           <DragDropContext onDragEnd={onDragEnd}>
             <Droppable droppableId="tracks">
@@ -520,14 +509,14 @@ export default function PlaylistPage() {
                                   ref={provided.innerRef}
                                   {...provided.draggableProps}
                                   className={cn(
-                                    "flex items-center gap-4 p-4 transition-colors group",
+                                    "flex items-center gap-3 sm:gap-4 p-3 sm:p-4 transition-colors group active:scale-[0.99] active:shadow-sm overflow-hidden",
                                     isCurrentTrack && !isEditing && "bg-surface-elevated",
                                     snapshot.isDragging ? "bg-accent shadow-md" : "hover:bg-surface-elevated",
                                     isEditing && "hover:bg-surface" 
                                   )}
                                 >
                                     {isEditing && (
-                                        <div {...provided.dragHandleProps} className="p-2 -ml-2 text-muted-foreground hover:text-foreground cursor-grab active:cursor-grabbing">
+                                        <div {...provided.dragHandleProps} className="flex-shrink-0 p-2 -ml-2 text-muted-foreground hover:text-foreground cursor-grab active:cursor-grabbing">
                                             <GripVertical className="h-5 w-5" />
                                         </div>
                                     )}
@@ -535,25 +524,25 @@ export default function PlaylistPage() {
                                     <div 
                                         onClick={() => handleTrackClick(index)} 
                                         className={cn(
-                                            "flex items-center gap-4 flex-1 text-left",
+                                            "flex items-center gap-3 sm:gap-4 flex-1 min-w-0 text-left",
                                             isEditing ? "cursor-default" : "cursor-pointer"
                                         )}
                                     >
-                                        <div className="flex-shrink-0 w-8 text-center">
+                                        <div className="flex-shrink-0 w-6 sm:w-8 text-center hidden xs:block">
                                             {isCurrentTrack && !isEditing ? (
                                                 <div className="flex items-center justify-center">
-                                                <div className="flex gap-1">
-                                                    <div className="w-1 h-4 bg-primary animate-pulse" />
-                                                    <div className="w-1 h-4 bg-primary animate-pulse [animation-delay:0.2s]" />
-                                                    <div className="w-1 h-4 bg-primary animate-pulse [animation-delay:0.4s]" />
+                                                <div className="flex gap-0.5 sm:gap-1">
+                                                    <div className="w-0.5 sm:w-1 h-3 sm:h-4 bg-primary animate-pulse" />
+                                                    <div className="w-0.5 sm:w-1 h-3 sm:h-4 bg-primary animate-pulse [animation-delay:0.2s]" />
+                                                    <div className="w-0.5 sm:w-1 h-3 sm:h-4 bg-primary animate-pulse [animation-delay:0.4s]" />
                                                 </div>
                                                 </div>
                                             ) : (
-                                                <span className="text-muted-foreground">{index + 1}</span>
+                                                <span className="text-muted-foreground text-sm">{index + 1}</span>
                                             )}
                                         </div>
 
-                                        <div className="flex-shrink-0 w-12 h-12 bg-surface rounded-lg flex items-center justify-center overflow-hidden">
+                                        <div className="flex-shrink-0 w-10 h-10 sm:w-12 sm:h-12 bg-surface rounded-lg flex items-center justify-center overflow-hidden">
                                             <img 
                                                 src={getAlbumArtUrl(track.album_art_url)}
                                                 alt={track.title}
@@ -562,46 +551,47 @@ export default function PlaylistPage() {
                                             />
                                         </div>
 
-                                        <div className="flex-1 min-w-0">
-                                            <div className={cn("font-semibold truncate", isCurrentTrack && !isEditing && "text-primary")}>
+                                        <div className="flex-1 min-w-0 mr-2">
+                                            <div className={cn("font-semibold truncate text-sm sm:text-base", isCurrentTrack && !isEditing && "text-primary")}>
                                                 {track.title}
                                             </div>
-                                            <div className="text-sm text-muted-foreground truncate">{track.artist_name}</div>
+                                            <div className="text-xs sm:text-sm text-muted-foreground truncate">{track.artist_name}</div>
                                         </div>
 
-                                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                                            {track.genre_toplevel && <span className="hidden sm:inline">{track.genre_toplevel}</span>}
-                                            <span className="hidden md:inline">
+                                        <div className="hidden sm:flex items-center gap-4 text-sm text-muted-foreground flex-shrink-0">
+                                            {track.genre_toplevel && <span className="hidden md:inline">{track.genre_toplevel}</span>}
+                                            <span>
                                                 {Math.floor(track.duration / 60)}:{(track.duration % 60).toString().padStart(2, "0")}
                                             </span>
                                         </div>
                                     </div>
 
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex items-center gap-2 flex-shrink-0">
                                         {isEditing ? (
                                             <Button
                                                 variant="ghost"
                                                 size="icon"
-                                                className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                                                className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
                                                 onClick={(e) => {
                                                     e.stopPropagation();
-                                                    handleDeleteTrack(item.id); // Pass item.id (association ID)
+                                                    handleDeleteTrack(item.id);
                                                 }}
                                             >
-                                                <Trash2 className="h-5 w-5" />
+                                                <Trash2 className="h-4 w-4 sm:h-5 sm:w-5" />
                                             </Button>
                                         ) : (
-                                            <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <div className="opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity">
                                                 <Button
                                                     variant="ghost"
                                                     size="sm"
+                                                    className="h-7 px-2 text-xs sm:h-9 sm:px-3 sm:text-sm bg-surface-elevated border border-border sm:bg-transparent sm:border-none"
                                                     onClick={(e) => {
                                                         e.stopPropagation();
                                                         handleCreateFromTrack(track.track_id);
                                                     }}
                                                 >
-                                                    <Plus className="h-4 w-4 mr-1" />
-                                                    Create
+                                                    <Plus className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+                                                    <span className="hidden sm:inline">{t?.common?.create || "Create"}</span>
                                                 </Button>
                                             </div>
                                         )}
@@ -618,11 +608,10 @@ export default function PlaylistPage() {
           </DragDropContext>
         </div>
         
-        {/* Add Tracks Section ... */}
         {isEditing && (
             <div className="bg-surface border border-border rounded-xl overflow-hidden p-6 space-y-4">
-                <h2 className="text-xl font-semibold">Add Tracks</h2>
-                <p className="text-sm text-muted-foreground">Search for tracks to add to this playlist.</p>
+                <h2 className="text-xl font-semibold">{t?.playlist?.addTracks || "Add Tracks"}</h2>
+                <p className="text-sm text-muted-foreground">{t?.playlist?.searchTracks || "Search for tracks to add to this playlist."}</p>
                 <TrackSearch onSelectTrack={handleAddTrack} />
             </div>
         )}

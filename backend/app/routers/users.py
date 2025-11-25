@@ -358,20 +358,28 @@ def update_user_profile(
 def get_user_created_playlists(
     username: str,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user)
+    current_user: Optional[models.User] = Depends(get_current_user_optional)
 ):
     db_user = crud.get_user_by_username(db, username=username)
     if db_user is None:
         raise HTTPException(status_code=404, detail="User not found")
     
+    # Convert to schema first
     playlists = [schemas.Playlist.model_validate(pl) for pl in db_user.playlists]
     
-    # We need the full current user's liked playlists to check against
-    current_user_full = crud.get_user_by_username(db, username=current_user.username)
-    liked_playlist_ids = {pl.id for pl in current_user_full.liked_playlists}
+    # Filter for public playlists if the requester is not the owner
+    if not current_user or current_user.id != db_user.id:
+        playlists = [p for p in playlists if p.is_public]
 
-    for playlist in playlists:
-        playlist.liked_by_user = playlist.id in liked_playlist_ids
+    # Calculate liked_by_user
+    if current_user:
+        current_user_full = crud.get_user_by_username(db, username=current_user.username)
+        liked_playlist_ids = {pl.id for pl in current_user_full.liked_playlists}
+        for playlist in playlists:
+            playlist.liked_by_user = playlist.id in liked_playlist_ids
+    else:
+        for playlist in playlists:
+            playlist.liked_by_user = False
         
     return playlists
 
@@ -379,14 +387,22 @@ def get_user_created_playlists(
 def get_user_liked_playlists(
     username: str,
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user)
+    current_user: Optional[models.User] = Depends(get_current_user_optional)
 ):
     db_user = crud.get_user_by_username(db, username=username)
     if db_user is None:
         raise HTTPException(status_code=404, detail="User not found")
     
     liked_playlists = [schemas.Playlist.model_validate(pl) for pl in db_user.liked_playlists]
-    for playlist in liked_playlists:
-        playlist.liked_by_user = True # By definition, the user likes all these playlists
+    
+    # Check if the *viewer* (current_user) likes these playlists
+    if current_user:
+        current_user_full = crud.get_user_by_username(db, username=current_user.username)
+        viewer_liked_ids = {pl.id for pl in current_user_full.liked_playlists}
+        for playlist in liked_playlists:
+            playlist.liked_by_user = playlist.id in viewer_liked_ids
+    else:
+        for playlist in liked_playlists:
+            playlist.liked_by_user = False
         
     return liked_playlists

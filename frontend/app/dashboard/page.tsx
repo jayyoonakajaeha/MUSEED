@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils"
 import { getTrendingPlaylists, getUserFeed } from "@/lib/api"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import Link from "next/link"
+import { useLanguage } from "@/context/LanguageContext"
 
 // Interface for Activity Feed
 interface ActivityItem {
@@ -85,6 +86,7 @@ function FeedSection() {
     const [activities, setActivities] = useState<ActivityItem[]>([]);
     const [loading, setLoading] = useState(true);
     const { token } = useAuth();
+    const { t } = useLanguage();
 
     useEffect(() => {
         if (!token) {
@@ -111,10 +113,10 @@ function FeedSection() {
         return (
             <div className="text-center py-12 bg-card border border-border rounded-xl">
                 <Activity className="h-12 w-12 text-muted-foreground/50 mx-auto mb-3" />
-                <p className="text-muted-foreground">Your feed is empty.</p>
-                <p className="text-sm text-muted-foreground mt-1">Follow people to see their activities here!</p>
+                <p className="text-muted-foreground">{t.dashboard.emptyFeed}</p>
+                <p className="text-sm text-muted-foreground mt-1">{t.dashboard.emptyFeedSub}</p>
                 <Link href="/discover" className="text-primary hover:underline mt-2 inline-block text-sm">
-                    Discover People
+                    {t.dashboard.discoverPeople}
                 </Link>
             </div>
         );
@@ -188,6 +190,7 @@ function FeedSection() {
 }
 
 function LoggedInDashboard() {
+  const { t } = useLanguage();
   return (
     <Tabs defaultValue="feed" className="space-y-8">
       <TabsList className="grid w-full max-w-md mx-auto grid-cols-2">
@@ -199,7 +202,7 @@ function LoggedInDashboard() {
           )}
         >
           <Activity className="h-4 w-4" />
-          Feed
+          {t.dashboard.feed}
         </TabsTrigger>
         <TabsTrigger
           value="trending"
@@ -209,15 +212,15 @@ function LoggedInDashboard() {
           )}
         >
           <TrendingUp className="h-4 w-4" />
-          Trending
+          {t.dashboard.trending}
         </TabsTrigger>
       </TabsList>
 
       {/* Feed Tab */}
       <TabsContent value="feed" className="space-y-8">
         <div className="space-y-2">
-          <h2 className="text-3xl md:text-4xl font-bold">Your Feed</h2>
-          <p className="text-muted-foreground">See what your friends are listening to</p>
+          <h2 className="text-3xl md:text-4xl font-bold">{t.dashboard.feedTitle}</h2>
+          <p className="text-muted-foreground">{t.dashboard.feedSubtitle}</p>
         </div>
         <FeedSection />
       </TabsContent>
@@ -225,8 +228,8 @@ function LoggedInDashboard() {
       {/* Trending Tab */}
       <TabsContent value="trending" className="space-y-8">
         <div className="space-y-2">
-          <h2 className="text-3xl md:text-4xl font-bold">Trending Playlists</h2>
-          <p className="text-muted-foreground">Discover what the community is listening to</p>
+          <h2 className="text-3xl md:text-4xl font-bold">{t.dashboard.trendingTitle}</h2>
+          <p className="text-muted-foreground">{t.dashboard.trendingSubtitle}</p>
         </div>
         <TrendingSection />
       </TabsContent>
@@ -235,11 +238,12 @@ function LoggedInDashboard() {
 }
 
 function GuestDashboard() {
+  const { t } = useLanguage();
   return (
     <div className="space-y-8">
       <div className="space-y-2 text-center">
-        <h2 className="text-3xl md:text-4xl font-bold">Join the Community</h2>
-        <p className="text-muted-foreground">Sign up to create playlists and follow artists.</p>
+        <h2 className="text-3xl md:text-4xl font-bold">{t.dashboard.joinCommunity}</h2>
+        <p className="text-muted-foreground">{t.dashboard.joinSubtitle}</p>
       </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 opacity-50 pointer-events-none blur-sm select-none">
              {/* Fake placeholders to tease content */}

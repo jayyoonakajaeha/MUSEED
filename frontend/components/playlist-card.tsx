@@ -12,6 +12,7 @@ import { usePlayer } from "@/context/PlayerContext"
 import { likePlaylist, unlikePlaylist } from "@/lib/api"
 import { toast } from "@/components/ui/use-toast"
 import { Button } from "@/components/ui/button"
+import { useLanguage } from "@/context/LanguageContext"
 
 
 // Interface for the playlist object coming from the backend
@@ -51,13 +52,14 @@ export function PlaylistCard({ playlist, isOwner = false, onDelete, onTogglePubl
     coverImage, 
   } = playlist;
   
-  // Use nickname if available, otherwise fallback to username
-  const creator = owner.nickname || owner.username;
-  const creatorUsername = owner.username;
+  // Use nickname if available, otherwise fallback to username. Handle guest playlists (no owner).
+  const creator = owner ? (owner.nickname || owner.username) : "Guest";
+  const creatorUsername = owner ? owner.username : null;
   const trackCount = tracks.length;
 
   const { token } = useAuth();
   const { playPlaylist } = usePlayer();
+  const { t } = useLanguage();
 
   const [liked, setLiked] = useState(liked_by_user)
   const [currentLikeCount, setCurrentLikeCount] = useState(likes_count)
@@ -104,8 +106,8 @@ export function PlaylistCard({ playlist, isOwner = false, onDelete, onTogglePubl
 
     if (!token) {
       toast({
-        title: "Login Required",
-        description: "You must be logged in to like playlists.",
+        title: t.toast.loginRequired,
+        description: t.toast.loginRequiredDesc,
         variant: "destructive",
       });
       return;
@@ -118,7 +120,7 @@ export function PlaylistCard({ playlist, isOwner = false, onDelete, onTogglePubl
         setCurrentLikeCount(prev => prev - 1);
       } else {
         toast({
-          title: "Error",
+          title: t.toast.error,
           description: result.error || "Failed to unlike playlist.",
           variant: "destructive",
         });
@@ -130,7 +132,7 @@ export function PlaylistCard({ playlist, isOwner = false, onDelete, onTogglePubl
         setCurrentLikeCount(prev => prev + 1);
       } else {
         toast({
-          title: "Error",
+          title: t.toast.error,
           description: result.error || "Failed to like playlist.",
           variant: "destructive",
         });
@@ -147,14 +149,14 @@ export function PlaylistCard({ playlist, isOwner = false, onDelete, onTogglePubl
         await navigator.clipboard.writeText(shareUrl);
         setIsCopied(true);
         toast({
-            title: "Link Copied",
-            description: "Playlist link copied to clipboard.",
+            title: t.toast.linkCopied,
+            description: t.toast.linkCopiedDesc,
         });
         setTimeout(() => setIsCopied(false), 2000);
     } catch (err) {
         toast({
-            title: "Share Failed",
-            description: "Could not copy link to clipboard.",
+            title: t.toast.shareFailed,
+            description: t.toast.shareFailedDesc,
             variant: "destructive",
         });
     }
@@ -194,7 +196,7 @@ export function PlaylistCard({ playlist, isOwner = false, onDelete, onTogglePubl
   return (
     <div
       onClick={handleCardClick}
-      className="group relative bg-surface rounded-xl overflow-hidden border border-border hover:border-primary/50 transition-all duration-300 hover:shadow-lg hover:shadow-primary/10 cursor-pointer"
+      className="group relative bg-surface rounded-xl overflow-hidden border border-border hover:border-primary/50 transition-all duration-300 hover:shadow-lg hover:shadow-primary/10 cursor-pointer active:scale-[0.98] active:shadow-sm"
     >
       {/* Cover Image */}
       <div className="relative aspect-square bg-surface-elevated overflow-hidden">

@@ -106,9 +106,9 @@ class PlaylistUpdate(BaseModel):
 
 class Playlist(PlaylistBase):
     id: int
-    owner_id: int
+    owner_id: Optional[int] = None
     created_at: datetime
-    owner: PlaylistOwner
+    owner: Optional[PlaylistOwner] = None
     tracks: List[PlaylistTrackResponse] = []
     liked_by: List[PlaylistOwner] = []
     liked_by_user: bool = False

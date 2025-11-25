@@ -11,11 +11,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { PlaylistCard } from "@/components/playlist-card"
 import { UserListDialog } from "@/components/user-list-dialog"
 import { GenreChart } from "@/components/genre-chart"
-import { Loader2, UserPlus, UserCheck, Edit, Music, Users, Heart, PieChart, Award, User } from "lucide-react" // Added User icon
+import { Loader2, UserPlus, UserCheck, Edit, Music, Users, Heart, PieChart, Award, User, LogOut } from "lucide-react" // Added User icon
 import Link from "next/link"
 import { toast } from "@/components/ui/use-toast"
 import { cn } from "@/lib/utils"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { useLanguage } from "@/context/LanguageContext"
 
 // Define interfaces
 interface Achievement {
@@ -98,8 +99,9 @@ const stringToColor = (str: string) => {
 
 export default function UserProfilePage() {
   const { userId } = useParams()
-  const { user: currentUser, token, isLoading: authLoading } = useAuth()
+  const { user: currentUser, token, isLoading: authLoading, logout } = useAuth()
   const router = useRouter()
+  const { t } = useLanguage()
 
   const [profileUser, setProfileUser] = useState<UserProfile | null>(null)
   const [createdPlaylists, setCreatedPlaylists] = useState<Playlist[]>([])
@@ -126,9 +128,9 @@ export default function UserProfilePage() {
       const [profileResult, statsResult, genreStatsResult, createdResult, likedResult] = await Promise.all([
         getUserProfile(username, token),
         getUserStats(username),
-        token ? getUserGenreStats(username, token) : Promise.resolve({ success: false }),
-        token ? getUserCreatedPlaylists(username, token) : Promise.resolve({ success: false }),
-        token ? getUserLikedPlaylists(username, token) : Promise.resolve({ success: false }),
+        getUserGenreStats(username, token || null),
+        getUserCreatedPlaylists(username, token || null),
+        getUserLikedPlaylists(username, token || null),
       ]);
 
       if (profileResult.success) {
@@ -167,7 +169,15 @@ export default function UserProfilePage() {
   }, [username, token, authLoading])
 
   const handleFollow = async () => {
-    if (!token || !profileUser) return;
+    if (!token) {
+      toast({
+        title: "Login Required",
+        description: "You must be logged in to follow users.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!profileUser) return; // Ensure profileUser exists
 
     const originalUser = profileUser;
     setProfileUser({
@@ -193,7 +203,15 @@ export default function UserProfilePage() {
   };
 
   const handleUnfollow = async () => {
-    if (!token || !profileUser) return;
+    if (!token) {
+      toast({
+        title: "Login Required",
+        description: "You must be logged in to unfollow users.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!profileUser) return; // Ensure profileUser exists
 
     const originalUser = profileUser;
     setProfileUser({
@@ -329,7 +347,7 @@ export default function UserProfilePage() {
                     <CardHeader className="pb-2">
                         <CardTitle className="text-lg flex items-center gap-2">
                             <User className="h-5 w-5 text-primary" /> {/* Using User icon for Profile */}
-                            Profile
+                            {t?.profile?.profile || "Profile"}
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="p-6 h-full flex flex-col justify-center">
@@ -349,12 +367,18 @@ export default function UserProfilePage() {
                                 </div>
 
                                 {isOwnProfile ? (
-                                <Button asChild variant="outline" className="w-full gap-2">
-                                    <Link href="/profile/edit">
-                                    <Edit className="h-4 w-4" />
-                                    Edit Profile
-                                    </Link>
-                                </Button>
+                                <div className="flex gap-2 w-full">
+                                    <Button asChild variant="outline" className="flex-1 gap-2">
+                                        <Link href="/profile/edit">
+                                        <Edit className="h-4 w-4" />
+                                        {t.profile.edit}
+                                        </Link>
+                                    </Button>
+                                    <Button onClick={logout} variant="outline" className="gap-2 text-destructive hover:text-destructive hover:bg-destructive/10">
+                                        <LogOut className="h-4 w-4" />
+                                        {t.nav.signOut}
+                                    </Button>
+                                </div>
                                 ) : (
                                 <Button onClick={profileUser.is_followed_by_current_user ? handleUnfollow : handleFollow} variant={profileUser.is_followed_by_current_user ? "secondary" : "default"} className="w-full gap-2">
                                     {profileUser.is_followed_by_current_user ? (
@@ -379,17 +403,17 @@ export default function UserProfilePage() {
                                     <div className="flex flex-col items-center justify-center">
                                         <Music className="h-5 w-5 text-primary mb-1" />
                                         <span className="font-bold text-lg">{profileUser.playlists.length}</span>
-                                        <span className="text-xs text-muted-foreground">Playlists</span>
+                                        <span className="text-xs text-muted-foreground">{t.profile.playlists}</span>
                                     </div>
                                     <button onClick={() => handleShowList('followers')} className="flex flex-col items-center justify-center hover:bg-muted rounded transition-colors p-1">
                                         <Users className="h-5 w-5 text-primary mb-1" />
                                         <span className="font-bold text-lg">{profileUser.followers_count}</span>
-                                        <span className="text-xs text-muted-foreground">Followers</span>
+                                        <span className="text-xs text-muted-foreground">{t.profile.followers}</span>
                                     </button>
                                     <button onClick={() => handleShowList('following')} className="flex flex-col items-center justify-center hover:bg-muted rounded transition-colors p-1">
                                         <Heart className="h-5 w-5 text-primary mb-1" />
                                         <span className="font-bold text-lg">{profileUser.following_count}</span>
-                                        <span className="text-xs text-muted-foreground">Following</span>
+                                        <span className="text-xs text-muted-foreground">{t.profile.following}</span>
                                     </button>
                                 </div>
                                 
@@ -398,7 +422,7 @@ export default function UserProfilePage() {
                                     <div className="space-y-3">
                                         <div className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
                                             <Award className="h-4 w-4 text-primary" />
-                                            Achievements
+                                            {t.profile.achievements}
                                         </div>
                                         <div className="flex flex-wrap gap-3">
                                             <TooltipProvider>
@@ -410,8 +434,8 @@ export default function UserProfilePage() {
                                                             </div>
                                                         </TooltipTrigger>
                                                         <TooltipContent>
-                                                            <p className="font-semibold">{achievement.name}</p>
-                                                            <p className="text-xs text-muted-foreground">{achievement.description}</p>
+                                                            <p className="font-semibold">{(t.achievements as any)[achievement.id]?.name || achievement.name}</p>
+                                                            <p className="text-xs text-muted-foreground">{(t.achievements as any)[achievement.id]?.desc || achievement.description}</p>
                                                         </TooltipContent>
                                                     </Tooltip>
                                                 ))}
@@ -429,7 +453,7 @@ export default function UserProfilePage() {
                     <CardHeader className="pb-2">
                         <CardTitle className="text-lg flex items-center gap-2">
                             <PieChart className="h-5 w-5 text-primary" />
-                            Top Genres
+                            {t.profile.topGenres}
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="p-4 pt-0 min-h-[250px] h-auto flex items-center justify-center">
@@ -438,7 +462,7 @@ export default function UserProfilePage() {
                                 <GenreChart data={chartData} />
                             </div>
                         ) : (
-                            <p className="text-muted-foreground text-sm">No listening data yet.</p>
+                            <p className="text-muted-foreground text-sm">{t.profile.noData}</p>
                         )}
                     </CardContent>
                 </Card>
@@ -454,7 +478,7 @@ export default function UserProfilePage() {
                     "data-[state=active]:!bg-primary data-[state=active]:!text-primary-foreground"
                   )}
                 >
-                  My Playlists ({createdPlaylists.length})
+                  {t.profile.myPlaylists} ({createdPlaylists.length})
                 </TabsTrigger>
                 <TabsTrigger 
                   value="liked-playlists" 
@@ -463,7 +487,7 @@ export default function UserProfilePage() {
                     "data-[state=active]:!bg-primary data-[state=active]:!text-primary-foreground"
                   )}
                 >
-                  Liked Playlists ({likedPlaylists.length})
+                  {t.profile.likedPlaylists} ({likedPlaylists.length})
                 </TabsTrigger>
               </TabsList>
               <TabsContent value="my-playlists" className="mt-6">
@@ -481,7 +505,7 @@ export default function UserProfilePage() {
                     </div>
                   ) : (
                     <div className="text-center py-12 text-muted-foreground">
-                      <p>This user hasn't created any playlists yet.</p>
+                      <p>{t.profile.noCreated}</p>
                     </div>
                   )}
               </TabsContent>
@@ -494,7 +518,7 @@ export default function UserProfilePage() {
                     </div>
                   ) : (
                     <div className="text-center py-12 text-muted-foreground">
-                      <p>This user hasn't liked any playlists yet.</p>
+                      <p>{t.profile.noLiked}</p>
                     </div>
                   )}
               </TabsContent>
