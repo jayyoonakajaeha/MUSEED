@@ -551,7 +551,7 @@ export default function PlaylistPage() {
                                             />
                                         </div>
 
-                                        <div className="flex-1 min-w-0 mr-2">
+                                        <div className="flex-1 min-w-0 mr-1 sm:mr-2 max-w-[calc(100%-120px)] sm:max-w-none">
                                             <div className={cn("font-semibold truncate text-sm sm:text-base", isCurrentTrack && !isEditing && "text-primary")}>
                                                 {track.title}
                                             </div>
@@ -566,7 +566,7 @@ export default function PlaylistPage() {
                                         </div>
                                     </div>
 
-                                    <div className="flex items-center gap-2 flex-shrink-0">
+                                    <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
                                         {isEditing ? (
                                             <Button
                                                 variant="ghost"
@@ -584,14 +584,14 @@ export default function PlaylistPage() {
                                                 <Button
                                                     variant="ghost"
                                                     size="sm"
-                                                    className="h-7 px-2 text-xs sm:h-9 sm:px-3 sm:text-sm bg-surface-elevated border border-border sm:bg-transparent sm:border-none"
+                                                    className="h-7 px-2 text-xs sm:h-9 sm:px-3 sm:text-sm bg-surface-elevated border border-border sm:bg-transparent sm:border-none whitespace-nowrap"
                                                     onClick={(e) => {
                                                         e.stopPropagation();
                                                         handleCreateFromTrack(track.track_id);
                                                     }}
                                                 >
                                                     <Plus className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
-                                                    <span className="hidden sm:inline">{t?.common?.create || "Create"}</span>
+                                                    {t?.common?.create || "Create"}
                                                 </Button>
                                             </div>
                                         )}
