@@ -190,14 +190,14 @@ export default function UserProfilePage() {
     if (!result.success) {
       setProfileUser(originalUser);
       toast({
-        title: "Error",
-        description: `Could not follow ${username}.`,
+        title: t.toast.error,
+        description: `Could not follow ${profileUser.nickname}.`,
         variant: "destructive",
       });
     } else {
         toast({
-            title: "Success",
-            description: `You are now following ${username}.`,
+            title: t.toast.success,
+            description: t.toast.followedUser.replace("{nickname}", profileUser.nickname),
         });
     }
   };
@@ -224,14 +224,14 @@ export default function UserProfilePage() {
     if (!result.success) {
       setProfileUser(originalUser);
       toast({
-        title: "Error",
-        description: `Could not unfollow ${username}.`,
+        title: t.toast.error,
+        description: `Could not unfollow ${profileUser.nickname}.`,
         variant: "destructive",
       });
     } else {
         toast({
-            title: "Success",
-            description: `You have unfollowed ${username}.`,
+            title: t.toast.success,
+            description: t.toast.unfollowedUser.replace("{nickname}", profileUser.nickname),
         });
     }
   };
@@ -306,10 +306,17 @@ export default function UserProfilePage() {
 
   if (error || !profileUser) {
     return (
-      <div className="flex flex-col justify-center items-center min-h-screen text-center">
-        <h2 className="text-2xl font-bold mb-2">User Not Found</h2>
-        <p className="text-muted-foreground mb-4">{error || `The profile for "${username}" could not be loaded.`}</p>
-        <Button onClick={() => router.push("/discover")}>Go to Discover</Button>
+      <div className="flex flex-col justify-center items-center min-h-screen text-center gap-4">
+        <h2 className="text-2xl font-bold">User Not Found or Error Loading Profile</h2>
+        <p className="text-muted-foreground">{error || `The profile for "${username}" could not be loaded.`}</p>
+        <div className="flex gap-2">
+            <Button variant="outline" onClick={() => { logout(); router.push("/login"); }}>
+                Go to Login
+            </Button>
+            <Button onClick={() => router.push("/discover")}>
+                Go to Discover
+            </Button>
+        </div>
       </div>
     )
   }

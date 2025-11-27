@@ -15,6 +15,7 @@ import { useLanguage } from "@/context/LanguageContext"
 interface User {
   id: number;
   username: string;
+  nickname: string;
   profile_image_key: string;
 }
 
@@ -70,7 +71,10 @@ export function UserListDialog({ isOpen, onClose, title, users }: UserListDialog
                     />
                     <AvatarFallback>{user.username.substring(0, 2).toUpperCase()}</AvatarFallback>
                   </Avatar>
-                  <span className="font-semibold">{user.username}</span>
+                  <div>
+                    <p className="font-semibold">{user.nickname}</p>
+                    <p className="text-xs text-muted-foreground">@{user.username}</p>
+                  </div>
                 </Link>
               ))
             ) : (

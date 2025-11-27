@@ -85,6 +85,7 @@ export default function PlaylistPage() {
 
   const [likedState, setLikedState] = useState(false)
   const [currentLikeCount, setCurrentLikeCount] = useState(0)
+  const [isLikeLoading, setIsLikeLoading] = useState(false)
   
   const [isCopied, setIsCopied] = useState(false)
 
@@ -134,7 +135,23 @@ export default function PlaylistPage() {
   }
 
   if (error) {
-    return <div className="min-h-screen flex items-center justify-center text-destructive">{t?.common?.error || "Error"}: {error}</div>
+    return (
+        <div className="min-h-screen flex flex-col items-center justify-center gap-4">
+            <p className="text-destructive">{t?.common?.error || "Error"}: {error}</p>
+            <div className="flex gap-2">
+                <Button variant="outline" onClick={() => { 
+                    // Manually clear auth if needed and redirect
+                    if (typeof window !== 'undefined') localStorage.removeItem('authToken');
+                    router.push("/login"); 
+                }}>
+                    Login / Logout
+                </Button>
+                <Button onClick={() => router.push("/discover")}>
+                    Go to Discover
+                </Button>
+            </div>
+        </div>
+    )
   }
 
   if (!playlist) {
@@ -242,30 +259,37 @@ export default function PlaylistPage() {
       return;
     }
 
-    if (likedState) {
-      const result = await unlikePlaylist(playlist.id, token);
-      if (result.success) {
-        setLikedState(false);
-        setCurrentLikeCount(prev => prev - 1);
-      } else {
-        toast({
-          title: t.toast.error,
-          description: result.error || "Failed to unlike playlist.",
-          variant: "destructive",
-        });
-      }
-    } else {
-      const result = await likePlaylist(playlist.id, token);
-      if (result.success) {
-        setLikedState(true);
-        setCurrentLikeCount(prev => prev + 1);
-      } else {
-        toast({
-          title: t.toast.error,
-          description: result.error || "Failed to like playlist.",
-          variant: "destructive",
-        });
-      }
+    if (isLikeLoading) return;
+    setIsLikeLoading(true);
+
+    try {
+        if (likedState) {
+        const result = await unlikePlaylist(playlist.id, token);
+        if (result.success) {
+            setLikedState(false);
+            setCurrentLikeCount(prev => prev - 1);
+        } else {
+            toast({
+            title: t.toast.error,
+            description: result.error || "Failed to unlike playlist.",
+            variant: "destructive",
+            });
+        }
+        } else {
+        const result = await likePlaylist(playlist.id, token);
+        if (result.success) {
+            setLikedState(true);
+            setCurrentLikeCount(prev => prev + 1);
+        } else {
+            toast({
+            title: t.toast.error,
+            description: result.error || "Failed to like playlist.",
+            variant: "destructive",
+            });
+        }
+        }
+    } finally {
+        setIsLikeLoading(false);
     }
   }
 

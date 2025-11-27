@@ -15,6 +15,14 @@ async function apiFetch(url: string, options: RequestInit = {}) {
     }
 
     if (!response.ok) {
+      if (response.status === 401) {
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('authToken');
+          window.location.href = '/login';
+          return { success: false, error: "Session expired. Please login again." };
+        }
+      }
+
       let errorMessage = 'An unknown error occurred.';
       if (data && data.detail) {
         if (Array.isArray(data.detail) && data.detail.length > 0 && data.detail[0].msg) {

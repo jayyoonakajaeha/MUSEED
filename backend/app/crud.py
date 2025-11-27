@@ -1,5 +1,6 @@
 from sqlalchemy.orm import Session, joinedload, subqueryload
 from sqlalchemy import func, desc, or_
+from sqlalchemy.exc import IntegrityError
 from . import models, schemas, security
 from typing import List, Optional
 from datetime import datetime, timedelta, timezone
@@ -384,11 +385,16 @@ def like_playlist(db: Session, playlist_id: int, user_id: int):
 
     # Check if already liked
     if db_user not in db_playlist.liked_by:
-        db_playlist.liked_by.append(db_user)
-        db.commit()
-        db.refresh(db_playlist)
-        # Record Activity
-        create_activity(db, user_id, models.ActivityType.LIKE_PLAYLIST, target_playlist_id=playlist_id)
+        try:
+            db_playlist.liked_by.append(db_user)
+            db.commit()
+            db.refresh(db_playlist)
+            # Record Activity
+            create_activity(db, user_id, models.ActivityType.LIKE_PLAYLIST, target_playlist_id=playlist_id)
+        except IntegrityError:
+            db.rollback()
+            # Already liked by race condition, just return current state
+            pass
         
     return get_playlist(db, db_playlist.id)
 

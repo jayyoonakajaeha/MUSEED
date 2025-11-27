@@ -91,7 +91,6 @@ def _populate_user_response(db_user: models.User, current_user: Optional[models.
         is_followed = any(follower.id == current_user.id for follower in db_user.followers)
 
     # Manually construct playlist responses to ensure correct serialization
-    # using model_validate which is the Pydantic v2 equivalent of from_orm
     created_playlists = [schemas.Playlist.model_validate(pl) for pl in db_user.playlists]
     liked_playlists = [schemas.Playlist.model_validate(pl) for pl in db_user.liked_playlists]
     
@@ -103,7 +102,7 @@ def _populate_user_response(db_user: models.User, current_user: Optional[models.
         for pl in created_playlists:
             pl.liked_by_user = pl.id in current_user_liked_playlist_ids
         for pl in liked_playlists:
-            pl.liked_by_user = True # All playlists in this list are liked by the current user
+            pl.liked_by_user = True 
 
     # Calculate Achievements
     achievements = _calculate_achievements(db_user)
@@ -118,7 +117,7 @@ def _populate_user_response(db_user: models.User, current_user: Optional[models.
         liked_playlists=liked_playlists,
         followers=db_user.followers,
         following=db_user.following,
-        achievements=achievements, # Added achievements
+        achievements=achievements,
         is_followed_by_current_user=is_followed
     )
     return user_response
@@ -131,23 +130,24 @@ def search_for_users(
     limit: int = 10,
     db: Session = Depends(get_db)
 ):
-    """
-    Search for users by username.
-    """
-    if q is None:
-        return []
-    users_db = crud.search_users(db, query=q, skip=skip, limit=limit)
-    
-    users_list = []
-    for user in users_db:
-        users_list.append(schemas.UserForList(
-            id=user.id,
-            username=user.username,
-            nickname=user.nickname,
-            profile_image_key=_get_profile_image_key(db, user)
-        ))
+    try:
+        if q is None:
+            return []
+        users_db = crud.search_users(db, query=q, skip=skip, limit=limit)
         
-    return users_list
+        users_list = []
+        for user in users_db:
+            users_list.append(schemas.UserForList(
+                id=user.id,
+                username=user.username,
+                nickname=user.nickname,
+                profile_image_key=_get_profile_image_key(db, user)
+            ))
+            
+        return users_list
+    except Exception as e:
+        print(f"Error in search_for_users: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/recommendations", response_model=List[schemas.UserRecommendation])
 def get_user_recommendations(
@@ -155,25 +155,26 @@ def get_user_recommendations(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
-    """
-    Get recommended users based on listening history similarity.
-    """
-    similar_users_data = recommendation.get_similar_users(db, current_user.id, limit=limit)
-    
-    recommendations = []
-    for item in similar_users_data:
-        user = item["user"]
-        similarity = item["similarity"]
+    try:
+        similar_users_data = recommendation.get_similar_users(db, current_user.id, limit=limit)
         
-        recommendations.append(schemas.UserRecommendation(
-            id=user.id,
-            username=user.username,
-            nickname=user.nickname, 
-            profile_image_key=_get_profile_image_key(db, user),
-            similarity=similarity
-        ))
-        
-    return recommendations
+        recommendations = []
+        for item in similar_users_data:
+            user = item["user"]
+            similarity = item["similarity"]
+            
+            recommendations.append(schemas.UserRecommendation(
+                id=user.id,
+                username=user.username,
+                nickname=user.nickname, 
+                profile_image_key=_get_profile_image_key(db, user),
+                similarity=similarity
+            ))
+            
+        return recommendations
+    except Exception as e:
+        print(f"Error in get_user_recommendations: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/feed", response_model=List[schemas.Activity])
 def get_user_feed(
@@ -181,55 +182,44 @@ def get_user_feed(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
-    """
-    Get activity feed from followed users.
-    """
-    activities_db = crud.get_feed_activities(db, current_user.id, limit=limit)
-    
-    activities_response = []
-    for activity in activities_db:
-        # Manually construct UserForList for user and target_user to include profile_image_key
-        user_data = schemas.UserForList(
-            id=activity.user.id,
-            username=activity.user.username,
-            nickname=activity.user.nickname,
-            profile_image_key=_get_profile_image_key(db, activity.user)
-        )
+    try:
+        activities_db = crud.get_feed_activities(db, current_user.id, limit=limit)
         
-        target_user_data = None
-        if activity.target_user:
-            target_user_data = schemas.UserForList(
-                id=activity.target_user.id,
-                username=activity.target_user.username,
-                nickname=activity.target_user.nickname,
-                profile_image_key=_get_profile_image_key(db, activity.target_user)
+        activities_response = []
+        for activity in activities_db:
+            user_data = schemas.UserForList(
+                id=activity.user.id,
+                username=activity.user.username,
+                nickname=activity.user.nickname,
+                profile_image_key=_get_profile_image_key(db, activity.user)
             )
             
-        # For playlist, we need to convert it to schema to handle tracks validation logic if any,
-        # but mainly it's fine as is via from_attributes=True if tracks are loaded.
-        # The crud.get_feed_activities joined loaded playlist.owner, but not tracks.
-        # We might need tracks for cover image (first track album art). 
-        # The Activity schema for playlist doesn't enforce tracks presence unless accessed.
-        # Front-end needs cover image.
-        
-        target_playlist_data = None
-        if activity.target_playlist:
-            # We need to ensure tracks are loaded if we want to use them for cover image
-            # Since crud didn't load them, we might trigger lazy load here or it might be empty.
-            # Let's assume basic info is enough and frontend handles missing cover.
-            # Or better, update CRUD to load tracks for playlist activities.
-            target_playlist_data = schemas.Playlist.model_validate(activity.target_playlist)
+            target_user_data = None
+            if activity.target_user:
+                target_user_data = schemas.UserForList(
+                    id=activity.target_user.id,
+                    username=activity.target_user.username,
+                    nickname=activity.target_user.nickname,
+                    profile_image_key=_get_profile_image_key(db, activity.target_user)
+                )
+                
+            target_playlist_data = None
+            if activity.target_playlist:
+                target_playlist_data = schemas.Playlist.model_validate(activity.target_playlist)
 
-        activities_response.append(schemas.Activity(
-            id=activity.id,
-            user=user_data,
-            action_type=activity.action_type,
-            target_playlist=target_playlist_data,
-            target_user=target_user_data,
-            created_at=activity.created_at
-        ))
-        
-    return activities_response
+            activities_response.append(schemas.Activity(
+                id=activity.id,
+                user=user_data,
+                action_type=activity.action_type,
+                target_playlist=target_playlist_data,
+                target_user=target_user_data,
+                created_at=activity.created_at
+            ))
+            
+        return activities_response
+    except Exception as e:
+        print(f"Error in get_user_feed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/{username}", response_model=schemas.User)
 def read_user(
@@ -237,11 +227,17 @@ def read_user(
     db: Session = Depends(get_db), 
     current_user: Optional[models.User] = Depends(get_current_user_optional)
 ):
-    db_user = crud.get_user_by_username(db, username=username)
-    if db_user is None:
-        raise HTTPException(status_code=404, detail="User not found")
-    
-    return _populate_user_response(db_user, current_user)
+    try:
+        db_user = crud.get_user_by_username(db, username=username)
+        if db_user is None:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        return _populate_user_response(db_user, current_user)
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error in read_user: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/{username}/follow", response_model=schemas.User)
 def follow_user_endpoint(
@@ -249,17 +245,23 @@ def follow_user_endpoint(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
-    user_to_follow = crud.get_user_by_username(db, username=username)
-    if not user_to_follow:
-        raise HTTPException(status_code=404, detail="User to follow not found")
-    
-    if current_user.id == user_to_follow.id:
-        raise HTTPException(status_code=400, detail="You cannot follow yourself")
+    try:
+        user_to_follow = crud.get_user_by_username(db, username=username)
+        if not user_to_follow:
+            raise HTTPException(status_code=404, detail="User to follow not found")
+        
+        if current_user.id == user_to_follow.id:
+            raise HTTPException(status_code=400, detail="You cannot follow yourself")
 
-    crud.follow_user(db, follower=current_user, followed=user_to_follow)
-    
-    updated_user = crud.get_user_by_username(db, username=username)
-    return _populate_user_response(updated_user, current_user)
+        crud.follow_user(db, follower=current_user, followed=user_to_follow)
+        
+        updated_user = crud.get_user_by_username(db, username=username)
+        return _populate_user_response(updated_user, current_user)
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error in follow_user_endpoint: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.delete("/{username}/follow", response_model=schemas.User)
 def unfollow_user_endpoint(
@@ -267,61 +269,87 @@ def unfollow_user_endpoint(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
-    user_to_unfollow = crud.get_user_by_username(db, username=username)
-    if not user_to_unfollow:
-        raise HTTPException(status_code=404, detail="User to unfollow not found")
+    try:
+        user_to_unfollow = crud.get_user_by_username(db, username=username)
+        if not user_to_unfollow:
+            raise HTTPException(status_code=404, detail="User to unfollow not found")
 
-    crud.unfollow_user(db, follower=current_user, followed=user_to_unfollow)
+        crud.unfollow_user(db, follower=current_user, followed=user_to_unfollow)
 
-    updated_user = crud.get_user_by_username(db, username=username)
-    return _populate_user_response(updated_user, current_user)
+        updated_user = crud.get_user_by_username(db, username=username)
+        return _populate_user_response(updated_user, current_user)
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error in unfollow_user_endpoint: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/{username}/followers", response_model=List[schemas.UserForList])
 def get_followers(username: str, db: Session = Depends(get_db)):
-    followers_db = crud.get_user_followers(db, username=username)
-    followers_list = [
-        schemas.UserForList(
-            id=f.id,
-            username=f.username,
-            nickname=f.nickname, 
-            profile_image_key=_get_profile_image_key(db, f)
-        ) for f in followers_db
-    ]
-    return followers_list
+    try:
+        followers_db = crud.get_user_followers(db, username=username)
+        followers_list = [
+            schemas.UserForList(
+                id=f.id,
+                username=f.username,
+                nickname=f.nickname, 
+                profile_image_key=_get_profile_image_key(db, f)
+            ) for f in followers_db
+        ]
+        return followers_list
+    except Exception as e:
+        print(f"Error in get_followers: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/{username}/following", response_model=List[schemas.UserForList])
 def get_following(username: str, db: Session = Depends(get_db)):
-    following_db = crud.get_user_following(db, username=username)
-    following_list = [
-        schemas.UserForList(
-            id=f.id,
-            username=f.username,
-            nickname=f.nickname, 
-            profile_image_key=_get_profile_image_key(db, f)
-        ) for f in following_db
-    ]
-    return following_list
+    try:
+        following_db = crud.get_user_following(db, username=username)
+        following_list = [
+            schemas.UserForList(
+                id=f.id,
+                username=f.username,
+                nickname=f.nickname, 
+                profile_image_key=_get_profile_image_key(db, f)
+            ) for f in following_db
+        ]
+        return following_list
+    except Exception as e:
+        print(f"Error in get_following: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/{username}/stats", response_model=schemas.UserStats)
 def read_user_stats(username: str, db: Session = Depends(get_db)):
-    db_user = crud.get_user_by_username(db, username=username)
-    if db_user is None:
-        raise HTTPException(status_code=404, detail="User not found")
-    
-    top_genre_result = crud.get_top_genre_for_user(db, user_id=db_user.id)
-    top_genre = top_genre_result.genre if top_genre_result else None
-    return schemas.UserStats(top_genre=top_genre)
+    try:
+        db_user = crud.get_user_by_username(db, username=username)
+        if db_user is None:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        top_genre_result = crud.get_top_genre_for_user(db, user_id=db_user.id)
+        top_genre = top_genre_result.genre if top_genre_result else None
+        return schemas.UserStats(top_genre=top_genre)
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error in read_user_stats: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/{username}/genre-stats", response_model=List[schemas.GenreStat])
 def get_user_genre_stats(username: str, db: Session = Depends(get_db)):
-    db_user = crud.get_user_by_username(db, username=username)
-    if db_user is None:
-        raise HTTPException(status_code=404, detail="User not found")
-    
-    genre_stats = crud.get_genre_distribution_for_user(db, user_id=db_user.id)
-    return genre_stats
+    try:
+        db_user = crud.get_user_by_username(db, username=username)
+        if db_user is None:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        genre_stats = crud.get_genre_distribution_for_user(db, user_id=db_user.id)
+        return genre_stats
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error in get_user_genre_stats: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.put("/{username}", response_model=schemas.User)
 def update_user_profile(
@@ -330,29 +358,35 @@ def update_user_profile(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
-    if current_user.username != username:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You do not have permission to edit this profile.",
-        )
-    
-    db_user = crud.get_user_by_username(db, username=username)
-    if not db_user:
-        raise HTTPException(status_code=404, detail="User not found")
+    try:
+        if current_user.username != username:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have permission to edit this profile.",
+            )
+        
+        db_user = crud.get_user_by_username(db, username=username)
+        if not db_user:
+            raise HTTPException(status_code=404, detail="User not found")
 
-    if user_in.username and user_in.username != db_user.username:
-        existing_user = crud.get_user_by_username(db, username=user_in.username)
-        if existing_user:
-            raise HTTPException(status_code=400, detail="User ID already taken.")
+        if user_in.username and user_in.username != db_user.username:
+            existing_user = crud.get_user_by_username(db, username=user_in.username)
+            if existing_user:
+                raise HTTPException(status_code=400, detail="User ID already taken.")
 
-    if user_in.email and user_in.email != db_user.email:
-        existing_user = crud.get_user_by_email(db, email=user_in.email)
-        if existing_user:
-            raise HTTPException(status_code=400, detail="Email already registered by another user.")
+        if user_in.email and user_in.email != db_user.email:
+            existing_user = crud.get_user_by_email(db, email=user_in.email)
+            if existing_user:
+                raise HTTPException(status_code=400, detail="Email already registered by another user.")
 
-    updated_db_user = crud.update_user(db=db, db_user=db_user, user_in=user_in)
-    reloaded_user = crud.get_user_by_username(db, username=updated_db_user.username)
-    return _populate_user_response(reloaded_user, current_user)
+        updated_db_user = crud.update_user(db=db, db_user=db_user, user_in=user_in)
+        reloaded_user = crud.get_user_by_username(db, username=updated_db_user.username)
+        return _populate_user_response(reloaded_user, current_user)
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error in update_user_profile: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/{username}/playlists", response_model=List[schemas.Playlist])
 def get_user_created_playlists(
@@ -360,28 +394,34 @@ def get_user_created_playlists(
     db: Session = Depends(get_db),
     current_user: Optional[models.User] = Depends(get_current_user_optional)
 ):
-    db_user = crud.get_user_by_username(db, username=username)
-    if db_user is None:
-        raise HTTPException(status_code=404, detail="User not found")
-    
-    # Convert to schema first
-    playlists = [schemas.Playlist.model_validate(pl) for pl in db_user.playlists]
-    
-    # Filter for public playlists if the requester is not the owner
-    if not current_user or current_user.id != db_user.id:
-        playlists = [p for p in playlists if p.is_public]
-
-    # Calculate liked_by_user
-    if current_user:
-        current_user_full = crud.get_user_by_username(db, username=current_user.username)
-        liked_playlist_ids = {pl.id for pl in current_user_full.liked_playlists}
-        for playlist in playlists:
-            playlist.liked_by_user = playlist.id in liked_playlist_ids
-    else:
-        for playlist in playlists:
-            playlist.liked_by_user = False
+    try:
+        db_user = crud.get_user_by_username(db, username=username)
+        if db_user is None:
+            raise HTTPException(status_code=404, detail="User not found")
         
-    return playlists
+        # Convert to schema first
+        playlists = [schemas.Playlist.model_validate(pl) for pl in db_user.playlists]
+        
+        # Filter for public playlists if the requester is not the owner
+        if not current_user or current_user.id != db_user.id:
+            playlists = [p for p in playlists if p.is_public]
+
+        # Calculate liked_by_user
+        if current_user:
+            current_user_full = crud.get_user_by_username(db, username=current_user.username)
+            liked_playlist_ids = {pl.id for pl in current_user_full.liked_playlists}
+            for playlist in playlists:
+                playlist.liked_by_user = playlist.id in liked_playlist_ids
+        else:
+            for playlist in playlists:
+                playlist.liked_by_user = False
+            
+        return playlists
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error in get_user_created_playlists: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/{username}/likes", response_model=List[schemas.Playlist])
 def get_user_liked_playlists(
@@ -389,20 +429,26 @@ def get_user_liked_playlists(
     db: Session = Depends(get_db),
     current_user: Optional[models.User] = Depends(get_current_user_optional)
 ):
-    db_user = crud.get_user_by_username(db, username=username)
-    if db_user is None:
-        raise HTTPException(status_code=404, detail="User not found")
-    
-    liked_playlists = [schemas.Playlist.model_validate(pl) for pl in db_user.liked_playlists]
-    
-    # Check if the *viewer* (current_user) likes these playlists
-    if current_user:
-        current_user_full = crud.get_user_by_username(db, username=current_user.username)
-        viewer_liked_ids = {pl.id for pl in current_user_full.liked_playlists}
-        for playlist in liked_playlists:
-            playlist.liked_by_user = playlist.id in viewer_liked_ids
-    else:
-        for playlist in liked_playlists:
-            playlist.liked_by_user = False
+    try:
+        db_user = crud.get_user_by_username(db, username=username)
+        if db_user is None:
+            raise HTTPException(status_code=404, detail="User not found")
         
-    return liked_playlists
+        liked_playlists = [schemas.Playlist.model_validate(pl) for pl in db_user.liked_playlists]
+        
+        # Check if the *viewer* (current_user) likes these playlists
+        if current_user:
+            current_user_full = crud.get_user_by_username(db, username=current_user.username)
+            viewer_liked_ids = {pl.id for pl in current_user_full.liked_playlists}
+            for playlist in liked_playlists:
+                playlist.liked_by_user = playlist.id in viewer_liked_ids
+        else:
+            for playlist in liked_playlists:
+                playlist.liked_by_user = False
+            
+        return liked_playlists
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error in get_user_liked_playlists: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

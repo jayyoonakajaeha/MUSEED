@@ -174,7 +174,9 @@ export const translations = {
         success: "Success",
         profileUpdated: "Profile Updated",
         profileUpdatedDesc: "Profile updated successfully.",
-        passwordsMismatch: "Passwords do not match."
+        passwordsMismatch: "Passwords do not match.",
+        followedUser: "You are now following {nickname}.",
+        unfollowedUser: "You have unfollowed {nickname}."
     }
   },
   ko: {
@@ -352,7 +354,9 @@ export const translations = {
         success: "성공",
         profileUpdated: "프로필 업데이트됨",
         profileUpdatedDesc: "프로필이 성공적으로 업데이트되었습니다.",
-        passwordsMismatch: "비밀번호가 일치하지 않습니다."
+        passwordsMismatch: "비밀번호가 일치하지 않습니다.",
+        followedUser: "{nickname}님을 팔로우했습니다.",
+        unfollowedUser: "{nickname}님을 언팔로우했습니다."
     }
   }
 }

@@ -65,6 +65,7 @@ export function PlaylistCard({ playlist, isOwner = false, onDelete, onTogglePubl
   const [currentLikeCount, setCurrentLikeCount] = useState(likes_count)
   const [isPublicState, setIsPublicState] = useState(is_public);
   const [isCopied, setIsCopied] = useState(false);
+  const [isLikeLoading, setIsLikeLoading] = useState(false);
 
   useEffect(() => {
     setLiked(liked_by_user);
@@ -113,30 +114,37 @@ export function PlaylistCard({ playlist, isOwner = false, onDelete, onTogglePubl
       return;
     }
 
-    if (liked) {
-      const result = await unlikePlaylist(id, token);
-      if (result.success) {
-        setLiked(false);
-        setCurrentLikeCount(prev => prev - 1);
-      } else {
-        toast({
-          title: t.toast.error,
-          description: result.error || "Failed to unlike playlist.",
-          variant: "destructive",
-        });
-      }
-    } else {
-      const result = await likePlaylist(id, token);
-      if (result.success) {
-        setLiked(true);
-        setCurrentLikeCount(prev => prev + 1);
-      } else {
-        toast({
-          title: t.toast.error,
-          description: result.error || "Failed to like playlist.",
-          variant: "destructive",
-        });
-      }
+    if (isLikeLoading) return;
+    setIsLikeLoading(true);
+
+    try {
+        if (liked) {
+        const result = await unlikePlaylist(id, token);
+        if (result.success) {
+            setLiked(false);
+            setCurrentLikeCount(prev => prev - 1);
+        } else {
+            toast({
+            title: t.toast.error,
+            description: result.error || "Failed to unlike playlist.",
+            variant: "destructive",
+            });
+        }
+        } else {
+        const result = await likePlaylist(id, token);
+        if (result.success) {
+            setLiked(true);
+            setCurrentLikeCount(prev => prev + 1);
+        } else {
+            toast({
+            title: t.toast.error,
+            description: result.error || "Failed to like playlist.",
+            variant: "destructive",
+            });
+        }
+        }
+    } finally {
+        setIsLikeLoading(false);
     }
   }
 
