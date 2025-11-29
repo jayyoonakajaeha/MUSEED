@@ -5,13 +5,45 @@
 /backend/app/__pycache__/
 /backend/app/routers/__pycache__/
 /backend/faiss_index.bin
+/backend/.env
+
 # Node.js frontend
 /frontend/node_modules/
 /frontend/.next/
 /frontend/out/
+/frontend/.env
+/frontend/.env.local
 
 # General
 .DS_Store
 *.pyc
 *.pyo
 *.pyd
+__pycache__/
+
+# Large Data & Models
+# Ignore everything in data and models folders...
+/data/*
+/models/*
+# ...but keep the READMEs
+!/data/README.md
+!/models/README.md
+
+# Research artifacts
+# Ignore large binary files
+*.npy
+*.pth
+*.pt
+*.bin
+*.wav
+*.mp3
+*.flac
+
+# Keep results and plots
+!/research/results/
+!/research/plots/
+
+# Virtual Environments
+venv/
+env/
+MuQ/

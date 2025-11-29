@@ -1,0 +1,240 @@
+[
+    {
+        "model_name": "base_muq",
+        "knn_accuracy_genre": 0.31555681496174554,
+        "classification_report_genre": {
+            "Blues": {
+                "precision": 0.14285714285714285,
+                "recall": 0.09415584415584416,
+                "f1-score": 0.11350293542074363,
+                "support": 308.0
+            },
+            "Classical": {
+                "precision": 0.19282511210762332,
+                "recall": 0.11716621253405994,
+                "f1-score": 0.14576271186440679,
+                "support": 367.0
+            },
+            "Country": {
+                "precision": 0.0196078431372549,
+                "recall": 0.009174311926605505,
+                "f1-score": 0.0125,
+                "support": 109.0
+            },
+            "Easy Listening": {
+                "precision": 0.0,
+                "recall": 0.0,
+                "f1-score": 0.0,
+                "support": 34.0
+            },
+            "Electronic": {
+                "precision": 0.3467139656460045,
+                "recall": 0.4263085399449036,
+                "f1-score": 0.3824135090609555,
+                "support": 4356.0
+            },
+            "Experimental": {
+                "precision": 0.2940206638821719,
+                "recall": 0.6799694966954754,
+                "f1-score": 0.41052793124616327,
+                "support": 3934.0
+            },
+            "Folk": {
+                "precision": 0.15859030837004406,
+                "recall": 0.037267080745341616,
+                "f1-score": 0.06035205364626991,
+                "support": 966.0
+            },
+            "Hip-Hop": {
+                "precision": 0.48663101604278075,
+                "recall": 0.11711711711711711,
+                "f1-score": 0.1887966804979253,
+                "support": 777.0
+            },
+            "Instrumental": {
+                "precision": 0.12408759124087591,
+                "recall": 0.02033492822966507,
+                "f1-score": 0.03494347379239465,
+                "support": 836.0
+            },
+            "International": {
+                "precision": 0.16071428571428573,
+                "recall": 0.01867219917012448,
+                "f1-score": 0.03345724907063197,
+                "support": 482.0
+            },
+            "Jazz": {
+                "precision": 0.07142857142857142,
+                "recall": 0.010723860589812333,
+                "f1-score": 0.018648018648018648,
+                "support": 373.0
+            },
+            "Old-Time / Historic": {
+                "precision": 0.36363636363636365,
+                "recall": 0.057971014492753624,
+                "f1-score": 0.1,
+                "support": 69.0
+            },
+            "Pop": {
+                "precision": 0.2375,
+                "recall": 0.04185022026431718,
+                "f1-score": 0.07116104868913857,
+                "support": 1362.0
+            },
+            "Rock": {
+                "precision": 0.42439862542955326,
+                "recall": 0.21781305114638447,
+                "f1-score": 0.2878787878787879,
+                "support": 3402.0
+            },
+            "Soul-RnB": {
+                "precision": 0.3333333333333333,
+                "recall": 0.0125,
+                "f1-score": 0.024096385542168676,
+                "support": 160.0
+            },
+            "Spoken": {
+                "precision": 0.05555555555555555,
+                "recall": 0.01818181818181818,
+                "f1-score": 0.0273972602739726,
+                "support": 110.0
+            },
+            "accuracy": 0.31555681496174554,
+            "macro avg": {
+                "precision": 0.21324377364884758,
+                "recall": 0.1174503559496389,
+                "f1-score": 0.11946487785197357,
+                "support": 17645.0
+            },
+            "weighted avg": {
+                "precision": 0.3046096220370547,
+                "recall": 0.31555681496174554,
+                "f1-score": 0.2673828566176404,
+                "support": 17645.0
+            }
+        },
+        "silhouette_scores": {
+            "genre": -0.036755237728357315,
+            "mood_style": -0.1106729730963707
+        }
+    },
+    {
+        "model_name": "finetuned_muq",
+        "knn_accuracy_genre": 0.433153867951261,
+        "classification_report_genre": {
+            "Blues": {
+                "precision": 0.2675324675324675,
+                "recall": 0.3344155844155844,
+                "f1-score": 0.2972582972582973,
+                "support": 308.0
+            },
+            "Classical": {
+                "precision": 0.44768856447688565,
+                "recall": 0.5013623978201635,
+                "f1-score": 0.4730077120822622,
+                "support": 367.0
+            },
+            "Country": {
+                "precision": 0.09375,
+                "recall": 0.11009174311926606,
+                "f1-score": 0.10126582278481013,
+                "support": 109.0
+            },
+            "Easy Listening": {
+                "precision": 0.058823529411764705,
+                "recall": 0.029411764705882353,
+                "f1-score": 0.0392156862745098,
+                "support": 34.0
+            },
+            "Electronic": {
+                "precision": 0.4634599156118143,
+                "recall": 0.630394857667585,
+                "f1-score": 0.534189281198327,
+                "support": 4356.0
+            },
+            "Experimental": {
+                "precision": 0.4324563342913995,
+                "recall": 0.49720386375190645,
+                "f1-score": 0.46257538134090104,
+                "support": 3934.0
+            },
+            "Folk": {
+                "precision": 0.3127906976744186,
+                "recall": 0.2784679089026915,
+                "f1-score": 0.2946330777656079,
+                "support": 966.0
+            },
+            "Hip-Hop": {
+                "precision": 0.4497991967871486,
+                "recall": 0.2882882882882883,
+                "f1-score": 0.35137254901960785,
+                "support": 777.0
+            },
+            "Instrumental": {
+                "precision": 0.22336769759450173,
+                "recall": 0.07775119617224881,
+                "f1-score": 0.11535048802129548,
+                "support": 836.0
+            },
+            "International": {
+                "precision": 0.3515358361774744,
+                "recall": 0.21369294605809128,
+                "f1-score": 0.2658064516129032,
+                "support": 482.0
+            },
+            "Jazz": {
+                "precision": 0.16883116883116883,
+                "recall": 0.06970509383378017,
+                "f1-score": 0.09867172675521822,
+                "support": 373.0
+            },
+            "Old-Time / Historic": {
+                "precision": 0.8166666666666667,
+                "recall": 0.7101449275362319,
+                "f1-score": 0.7596899224806202,
+                "support": 69.0
+            },
+            "Pop": {
+                "precision": 0.24514200298953662,
+                "recall": 0.12041116005873716,
+                "f1-score": 0.16149679960610536,
+                "support": 1362.0
+            },
+            "Rock": {
+                "precision": 0.5093666369313113,
+                "recall": 0.5035273368606702,
+                "f1-score": 0.506430155210643,
+                "support": 3402.0
+            },
+            "Soul-RnB": {
+                "precision": 0.2,
+                "recall": 0.01875,
+                "f1-score": 0.03428571428571429,
+                "support": 160.0
+            },
+            "Spoken": {
+                "precision": 0.4716981132075472,
+                "recall": 0.22727272727272727,
+                "f1-score": 0.3067484662576687,
+                "support": 110.0
+            },
+            "accuracy": 0.433153867951261,
+            "macro avg": {
+                "precision": 0.3445568017615066,
+                "recall": 0.2881807372789909,
+                "f1-score": 0.30012484574715576,
+                "support": 17645.0
+            },
+            "weighted avg": {
+                "precision": 0.41126778396673397,
+                "recall": 0.433153867951261,
+                "f1-score": 0.4124505371362831,
+                "support": 17645.0
+            }
+        },
+        "silhouette_scores": {
+            "genre": -0.13264727592468262,
+            "mood_style": -0.3532750606536865
+        }
+    }
+]
