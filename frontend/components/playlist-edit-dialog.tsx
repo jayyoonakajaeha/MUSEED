@@ -36,7 +36,7 @@ export function PlaylistEditDialog({ isOpen, onClose, playlist, onUpdate }: Play
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Update state when playlist prop changes (e.g., dialog opens for a different playlist)
+  // playlist prop 변경 시 상태 업데이트 (예: 다른 플레이리스트로 다이얼로그 열림)
   useEffect(() => {
     setName(playlist.name)
     setIsPublic(playlist.is_public)
@@ -61,7 +61,7 @@ export function PlaylistEditDialog({ isOpen, onClose, playlist, onUpdate }: Play
         title: "Success",
         description: "Playlist updated successfully.",
       })
-      onUpdate({ name, is_public: isPublic }) // Notify parent component of update
+      onUpdate({ name, is_public: isPublic }) // 부모 컴포넌트에 업데이트 알림
       onClose()
     } else {
       setError(result.error || "Failed to update playlist.")

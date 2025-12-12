@@ -6,13 +6,13 @@ from tqdm import tqdm
 import argparse
 
 # --- Configuration ---
-# Use the fine-tuned embeddings as they performed better in evaluation
-EMBEDDING_DIR = '/home/jay/MusicAI/fma_audio_embeddings_finetuned_muq/' 
-# The JSONL file provides the list and order of tracks to be indexed
-JSONL_PATH = '/home/jay/MusicAI/multi_axis_analysis_results.jsonl' 
+# Unified embeddings directory
+EMBEDDING_DIR = '/home/jay/MusicAI/MUSEED/data/embeddings_contrastive_v2_mean/' 
+# No longer using JSONL for order; we will scan the directory.
+# JSONL_PATH = ... 
 # Output paths for the generated index and its metadata
-FAISS_INDEX_PATH = 'faiss_index.bin'
-TRACK_IDS_PATH = 'faiss_track_ids.json'
+FAISS_INDEX_PATH = '/home/jay/MusicAI/MUSEED/models/faiss_index.bin' 
+TRACK_IDS_PATH = '/home/jay/MusicAI/MUSEED/models/faiss_track_ids.json'
 
 def build_index():
     """
@@ -20,43 +20,49 @@ def build_index():
     """
     print("--- Starting FAISS Index Construction ---")
 
-    # 1. Load track IDs from the JSONL file to ensure order
-    print(f"Loading track order from {JSONL_PATH}...")
-    try:
-        track_ids_in_order = []
-        with open(JSONL_PATH, 'r') as f:
-            for line in f:
-                track_ids_in_order.append(json.loads(line)['track_id'])
-    except FileNotFoundError:
-        print(f"FATAL: Metadata file not found at {JSONL_PATH}. Cannot determine track order.")
+    # 1. Scan directory for valid .npy files
+    print(f"Scanning embeddings from {EMBEDDING_DIR}...")
+    
+    if not os.path.exists(EMBEDDING_DIR):
+        print(f"FATAL: Embedding directory not found at {EMBEDDING_DIR}")
         return
 
-    # 2. Load embeddings into a single numpy array
-    print(f"Loading embeddings from {EMBEDDING_DIR}...")
+    npy_files = [f for f in os.listdir(EMBEDDING_DIR) if f.endswith('.npy')]
+    npy_files.sort() # Ensure deterministic order by filename (track_id)
+    
+    print(f"Found {len(npy_files)} embedding files.")
+
+    # 2. Load embeddings
     all_embeddings = []
     final_track_ids = []
     embedding_dim = -1
 
-    for track_id in tqdm(track_ids_in_order, desc="Loading embeddings"):
-        embedding_path = os.path.join(EMBEDDING_DIR, f"{track_id}.npy")
-        if os.path.exists(embedding_path):
-            try:
-                embedding = np.load(embedding_path).astype('float32')
-                if embedding.ndim != 1:
-                    print(f"Skipping track {track_id}: embedding is not 1D (shape: {embedding.shape})")
-                    continue
-                
-                if embedding_dim == -1:
-                    embedding_dim = embedding.shape[0]
-                
-                if embedding.shape[0] != embedding_dim:
-                    print(f"Skipping track {track_id}: inconsistent embedding dimension. Expected {embedding_dim}, got {embedding.shape[0]}")
-                    continue
+    for filename in tqdm(npy_files, desc="Loading embeddings"):
+        # Extract track_id from filename (12345.npy -> 12345)
+        try:
+            track_id = int(os.path.splitext(filename)[0])
+        except ValueError:
+            print(f"Skipping file {filename}: filename is not a valid integer track_id")
+            continue
 
-                all_embeddings.append(embedding)
-                final_track_ids.append(track_id)
-            except Exception as e:
-                print(f"Warning: Could not load embedding for track {track_id}: {e}")
+        embedding_path = os.path.join(EMBEDDING_DIR, filename)
+        try:
+            embedding = np.load(embedding_path).astype('float32')
+            if embedding.ndim != 1:
+                print(f"Skipping track {track_id}: embedding is not 1D (shape: {embedding.shape})")
+                continue
+            
+            if embedding_dim == -1:
+                embedding_dim = embedding.shape[0]
+            
+            if embedding.shape[0] != embedding_dim:
+                print(f"Skipping track {track_id}: inconsistent embedding dimension. Expected {embedding_dim}, got {embedding.shape[0]}")
+                continue
+
+            all_embeddings.append(embedding)
+            final_track_ids.append(track_id)
+        except Exception as e:
+            print(f"Warning: Could not load embedding for track {track_id}: {e}")
     
     if not all_embeddings:
         print("FATAL: No embeddings were loaded. Cannot build index.")

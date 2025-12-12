@@ -16,7 +16,7 @@ const LanguageContext = createContext<LanguageContextType | undefined>(undefined
 export function LanguageProvider({ children }: { children: ReactNode }) {
   const [language, setLanguage] = useState<Language>('en');
 
-  // Load language preference from localStorage
+  // 로컬 스토리지에서 언어 설정 불러오기
   useEffect(() => {
     const storedLang = localStorage.getItem('language') as Language;
     if (storedLang) {
@@ -30,8 +30,8 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <LanguageContext.Provider value={{ 
-      language, 
+    <LanguageContext.Provider value={{
+      language,
       setLanguage: handleSetLanguage,
       t: translations[language]
     }}>

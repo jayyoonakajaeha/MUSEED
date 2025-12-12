@@ -30,12 +30,12 @@ export function UserListDialog({ isOpen, onClose, title, users }: UserListDialog
   const { t } = useLanguage()
 
   const getProfileImageUrl = (key: string) => {
-    // A simple check to see if the key corresponds to a known genre image file.
-    // This list could be expanded or managed more dynamically.
+    // 알려진 장르 이미지 파일 키인지 확인하는 간단한 체크
+    // 이 목록은 동적으로 관리될 수 있음
     const knownGenreImages = [
-      "Blues", "Classical", "Country", "Electronic", "Experimental", 
-      "Folk", "Hip-Hop", "Instrumental", "International", "Jazz", 
-      "Old-Time / Historic", "Pop", "Rock", "Soul-RnB", "Spoken", 
+      "Blues", "Classical", "Country", "Electronic", "Experimental",
+      "Folk", "Hip-Hop", "Instrumental", "International", "Jazz",
+      "Old-Time / Historic", "Pop", "Rock", "Soul-RnB", "Spoken",
       "Easy Listening", "Default_Headphone", "Default"
     ];
     if (knownGenreImages.includes(key)) {
@@ -64,9 +64,9 @@ export function UserListDialog({ isOpen, onClose, title, users }: UserListDialog
                   className="flex items-center gap-4 p-2 rounded-lg hover:bg-muted transition-colors"
                 >
                   <Avatar>
-                    <AvatarImage 
-                      src={getProfileImageUrl(user.profile_image_key)} 
-                      alt={user.username} 
+                    <AvatarImage
+                      src={getProfileImageUrl(user.profile_image_key)}
+                      alt={user.username}
                       onError={(e) => { e.currentTarget.src = '/profiles/Default.png'; }}
                     />
                     <AvatarFallback>{user.username.substring(0, 2).toUpperCase()}</AvatarFallback>

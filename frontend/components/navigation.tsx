@@ -17,30 +17,37 @@ export function Navigation() {
     setLanguage(language === 'en' ? 'ko' : 'en');
   }
 
+  interface NavItem {
+    label: string
+    icon: any
+    href?: string
+    action?: () => void
+  }
+
   const navItems = [
     { href: "/dashboard", label: t.nav.home, icon: Home },
     { href: "/discover", label: t.nav.discover, icon: Search },
     { href: "/create", label: t.nav.create, icon: PlusCircle },
   ]
 
-  // Add profile link and language toggle for mobile nav
-  const mobileNavItems = user
+  // 모바일 네비게이션을 위한 프로필 링크 및 언어 토글 추가
+  const mobileNavItems: NavItem[] = user
     ? [
-        ...navItems, 
-        { href: `/user/${user.username}`, label: t.nav.profile, icon: User },
-        { label: language === 'en' ? 'KO' : 'EN', icon: Languages, action: toggleLanguage }
-      ]
+      ...navItems,
+      { href: `/user/${user.username}`, label: t.nav.profile, icon: User },
+      { label: language === 'en' ? 'KO' : 'EN', icon: Languages, action: toggleLanguage }
+    ]
     : [ // 비로그인 상태일 때도 언어 선택 버튼 포함
-        ...navItems, 
-        { href: "/login", label: t.nav.signIn, icon: User },
-        { label: language === 'en' ? 'KO' : 'EN', icon: Languages, action: toggleLanguage }
-      ]
+      ...navItems,
+      { href: "/login", label: t.nav.signIn, icon: User },
+      { label: language === 'en' ? 'KO' : 'EN', icon: Languages, action: toggleLanguage }
+    ]
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 border-b border-border bg-background/80 backdrop-blur-xl">
       <div className="container mx-auto px-4">
         <div className="flex h-16 items-center justify-between">
-          {/* Logo */}
+          {/* 로고 */}
           <Link href="/dashboard" className="flex items-center gap-2 group flex-shrink-0">
             <div className="relative">
               <Music className="h-7 w-7 text-primary transition-transform group-hover:scale-110" />
@@ -49,7 +56,7 @@ export function Navigation() {
             <span className="text-xl font-bold tracking-tight">MUSEED</span>
           </Link>
 
-          {/* Desktop Navigation */}
+          {/* 데스크탑 네비게이션 */}
           <div className="hidden lg:flex items-center gap-1 flex-1 justify-center">
             {navItems.map((item) => {
               const Icon = item.icon
@@ -73,11 +80,11 @@ export function Navigation() {
             })}
           </div>
 
-          {/* User Actions (Desktop) */}
+          {/* 유저 액션 (데스크탑) */}
           <div className="hidden lg:flex items-center gap-3 flex-shrink-0">
             <Button variant="ghost" size="sm" onClick={toggleLanguage} className="text-muted-foreground hover:text-foreground">
-                <Languages className="h-4 w-4 mr-1" />
-                {language === 'en' ? 'KO' : 'EN'}
+              <Languages className="h-4 w-4 mr-1" />
+              {language === 'en' ? 'KO' : 'EN'}
             </Button>
             {user ? (
               <>
@@ -115,23 +122,23 @@ export function Navigation() {
               </>
             )}
           </div>
-          
-          {/* Mobile Header Actions (Login/Logout) */}
+
+          {/* 모바일 헤더 액션 (로그인/로그아웃) */}
           <div className="flex lg:hidden items-center gap-1 flex-shrink-0">
             {!user ? (
-                <Link href="/login" className="text-muted-foreground hover:text-foreground p-2 active:scale-95 transition-transform">
-                    <LogIn className="h-6 w-6" />
-                </Link>
+              <Link href="/login" className="text-muted-foreground hover:text-foreground p-2 active:scale-95 transition-transform">
+                <LogIn className="h-6 w-6" />
+              </Link>
             ) : (
-                <button onClick={logout} className="text-muted-foreground hover:text-foreground p-2 active:scale-95 transition-transform">
-                    <LogOut className="h-6 w-6" />
-                </button>
+              <button onClick={logout} className="text-muted-foreground hover:text-foreground p-2 active:scale-95 transition-transform">
+                <LogOut className="h-6 w-6" />
+              </button>
             )}
           </div>
         </div>
       </div>
 
-      {/* Mobile Navigation (Bottom) */}
+      {/* 모바일 네비게이션 (하단) */}
       <div className="lg:hidden fixed bottom-0 left-0 right-0 border-t border-border bg-background/95 backdrop-blur-xl pb-safe">
         <div className="flex items-center justify-around px-2 py-2">
           {mobileNavItems.map((item, index) => {
@@ -139,16 +146,16 @@ export function Navigation() {
             const isActive = item.href ? pathname === item.href : false
 
             if (item.action) {
-                return (
-                    <button
-                        key={index}
-                        onClick={item.action}
-                        className="flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-all active:scale-90 text-muted-foreground hover:text-foreground"
-                    >
-                        <Icon className="h-5 w-5" />
-                        <span className="text-[10px] font-medium">{item.label}</span>
-                    </button>
-                )
+              return (
+                <button
+                  key={index}
+                  onClick={item.action}
+                  className="flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-all active:scale-90 text-muted-foreground hover:text-foreground"
+                >
+                  <Icon className="h-5 w-5" />
+                  <span className="text-[10px] font-medium">{item.label}</span>
+                </button>
+              )
             }
 
             return (

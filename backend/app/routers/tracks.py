@@ -17,32 +17,32 @@ JAMENDO_DIR = "/home/jay/MusicAI/jamendo_downloads"
 
 def get_track_path(track_id: int, db: Session) -> Optional[str]:
     """
-    Constructs the full path to an audio file.
-    Handles both FMA tracks (ID < 200000) and Jamendo tracks (ID >= 200000).
+    오디오 파일 전체 경로 구성
+    FMA (ID < 200000) 및 Jamendo (ID >= 200000) 처리
     """
     if track_id < 200000:
-        # FMA Track logic
+        # FMA 트랙 로직
         track_id_str = f"{track_id:06d}"
         folder = track_id_str[:3]
         path = os.path.join(FMA_FULL_PATH, folder, f"{track_id_str}.mp3")
         if os.path.exists(path):
             return path
     else:
-        # Jamendo Track logic
-        # Need to query DB to get filename (Artist - Title.mp3)
-        track = crud.search_tracks(db, query=str(track_id), limit=1) # Search by ID
+        # Jamendo 트랙 로직
+        # DB에서 파일명 조회 (Artist - Title.mp3)
+        track = crud.search_tracks(db, query=str(track_id), limit=1) # ID 검색
         if track:
             track = track[0]
-            # Try exact filename match
+            # 정확한 파일명 매칭 시도
             filename = f"{track.artist_name} - {track.title}.mp3"
             path = os.path.join(JAMENDO_DIR, filename)
             if os.path.exists(path):
                 return path
             
-            # Fallback: Try finding file that contains title if artist match fails or naming is different
-            # This is a bit expensive but Jamendo filenames can be tricky
+            # 폴백: 아티스트 매칭 실패 시 제목 포함 여부로 검색
+            # Jamendo 파일명이 불규칙할 경우 대비 (다소 느림)
             import glob
-            # Escape glob characters if necessary, but for now try simple search
+            # 단순 검색 시도
             candidates = glob.glob(os.path.join(JAMENDO_DIR, f"*{track.title}*.mp3"))
             if candidates:
                 return candidates[0]
@@ -62,7 +62,7 @@ def search_for_tracks(
     
     response_tracks = []
     for track in db_tracks:
-        # Check if the audio file exists before adding it to the list
+        # 리스트에 추가 전 오디오 파일 존재 확인
         if get_track_path(track.track_id, db):
             track_schema = schemas.Track.from_orm(track)
             track_schema.audio_url = f"/api/tracks/{track.track_id}/stream"

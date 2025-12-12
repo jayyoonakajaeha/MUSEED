@@ -20,10 +20,10 @@ export function GenreChart({ data }: GenreChartProps) {
           <Pie
             data={data}
             cx="50%"
-            cy="40%" // Moved up to make room for legend
+            cy="50%" // 수직 중앙 정렬
             labelLine={false}
             label={({ name, percent }) => `${(percent * 100).toFixed(0)}%`}
-            outerRadius={70} 
+            outerRadius={80} // 공간 채우기 위해 반지름 증가 
             fill="#8884d8"
             dataKey="value"
           >

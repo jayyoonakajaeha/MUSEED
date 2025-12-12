@@ -11,7 +11,7 @@ router = APIRouter(
 @router.get("/status")
 def get_status():
     """
-    A simple endpoint to check if the backend is running.
+    백엔드 실행 상태 확인 엔드포인트
     """
     return {"status": "ok"}
 

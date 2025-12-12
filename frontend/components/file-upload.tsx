@@ -35,6 +35,7 @@ export function FileUpload({ onFileUpload, uploadedFiles, onRemoveFile }: FileUp
       e.preventDefault()
       setIsDragging(false)
 
+      // 드롭된 파일 처리
       const files = Array.from(e.dataTransfer.files)
       files.forEach((file) => {
         if (file.type.startsWith("audio/")) {

@@ -5,7 +5,7 @@ from . import models, schemas, security
 from typing import List, Optional
 from datetime import datetime, timedelta, timezone
 
-# --- Activity CRUD ---
+# --- 활동 CRUD ---
 
 def create_activity(
     db: Session, 
@@ -27,9 +27,9 @@ def create_activity(
 
 def get_feed_activities(db: Session, user_id: int, limit: int = 20):
     """
-    Get activities from users that the current user follows.
+    사용자가 팔로우한 사람들의 활동 조회 (메소드 설명 제외)
     """
-    # Get list of IDs the user follows
+    # 팔로우한 ID 목록 조회
     user = db.query(models.User).options(joinedload(models.User.following)).filter(models.User.id == user_id).first()
     if not user:
         return []
@@ -42,14 +42,14 @@ def get_feed_activities(db: Session, user_id: int, limit: int = 20):
     return db.query(models.Activity).options(
         joinedload(models.Activity.user),
         joinedload(models.Activity.target_playlist).joinedload(models.Playlist.owner),
-        joinedload(models.Activity.target_playlist).subqueryload(models.Playlist.tracks).joinedload(models.PlaylistTrack.track), # Load tracks for cover art
+        joinedload(models.Activity.target_playlist).subqueryload(models.Playlist.tracks).joinedload(models.PlaylistTrack.track), # 커버 아트를 위한 트랙 로드
         joinedload(models.Activity.target_user)
     ).filter(
         models.Activity.user_id.in_(following_ids)
     ).order_by(desc(models.Activity.created_at)).limit(limit).all()
 
 
-# --- User CRUD ---
+# --- 사용자 CRUD ---
 
 def get_user(db: Session, user_id: int):
     return db.query(models.User).filter(models.User.id == user_id).first()
@@ -129,7 +129,7 @@ def follow_user(db: Session, follower: models.User, followed: models.User):
     if followed not in follower.following:
         follower.following.append(followed)
         db.commit()
-        # Record Activity
+        # 활동 기록
         create_activity(db, follower.id, models.ActivityType.FOLLOW_USER, target_user_id=followed.id)
     return follower
 
@@ -147,7 +147,7 @@ def get_user_following(db: Session, username: str):
     user = db.query(models.User).options(joinedload(models.User.following)).filter(models.User.username == username).first()
     return user.following if user else []
 
-# --- Listening History CRUD ---
+# --- 청취 기록 CRUD ---
 
 def create_listening_history(db: Session, history: schemas.ListeningHistoryCreate, user_id: int):
     db_history = models.ListeningHistory(
@@ -185,7 +185,7 @@ def get_genre_distribution_for_user(db: Session, user_id: int):
         .all()
     )
 
-# --- Playlist CRUD ---
+# --- 플레이리스트 CRUD ---
 
 def get_playlist(db: Session, playlist_id: int):
     return db.query(models.Playlist).options(
@@ -285,14 +285,14 @@ def create_playlist(db: Session, name: str, owner_id: int, track_ids: List[int])
     db.commit()
     db.refresh(db_playlist)
 
-    for track_id in track_ids:
-        db_track = models.PlaylistTrack(playlist_id=db_playlist.id, track_id=track_id)
+    for index, track_id in enumerate(track_ids):
+        db_track = models.PlaylistTrack(playlist_id=db_playlist.id, track_id=track_id, position=index)
         db.add(db_track)
     
     db.commit()
     db.refresh(db_playlist)
     
-    # Record Activity only if user is logged in
+    # 로그인 사용자의 경우만 활동 기록
     if owner_id is not None:
         create_activity(db, owner_id, models.ActivityType.CREATE_PLAYLIST, target_playlist_id=db_playlist.id)
     
@@ -313,12 +313,12 @@ def update_playlist(db: Session, playlist_id: int, playlist_update: schemas.Play
     return get_playlist(db, db_playlist.id)
 
 def add_track_to_playlist(db: Session, playlist_id: int, track_id: int):
-    # Check if track exists
+    # 트랙 존재 확인
     track = db.query(models.Track).filter(models.Track.track_id == track_id).first()
     if not track:
         return False
 
-    # Calculate new position (last + 1)
+    # 새로운 위치 계산 (마지막 + 1)
     last_position = db.query(func.max(models.PlaylistTrack.position)).filter(models.PlaylistTrack.playlist_id == playlist_id).scalar()
     new_position = (last_position if last_position is not None else -1) + 1
 
@@ -352,13 +352,13 @@ def remove_track_from_playlist(db: Session, playlist_id: int, track_id: int):
     return False
 
 def reorder_playlist_tracks(db: Session, playlist_id: int, track_ids: List[int]):
-    # Fetch all associations for this playlist to minimize queries
+    # 쿼리 최소화를 위해 모든 연관 관계 조회
     tracks = db.query(models.PlaylistTrack).filter(
         models.PlaylistTrack.playlist_id == playlist_id,
         models.PlaylistTrack.track_id.in_(track_ids)
     ).all()
     
-    # Create a map for quick lookup
+    # 빠른 조회를 위한 맵 생성
     track_map = {t.track_id: t for t in tracks}
     
     for index, track_id in enumerate(track_ids):
@@ -383,17 +383,17 @@ def like_playlist(db: Session, playlist_id: int, user_id: int):
     if not db_playlist or not db_user:
         return None
 
-    # Check if already liked
+    # 이미 좋아요 했는지 확인
     if db_user not in db_playlist.liked_by:
         try:
             db_playlist.liked_by.append(db_user)
             db.commit()
             db.refresh(db_playlist)
-            # Record Activity
+            # 활동 기록
             create_activity(db, user_id, models.ActivityType.LIKE_PLAYLIST, target_playlist_id=playlist_id)
         except IntegrityError:
             db.rollback()
-            # Already liked by race condition, just return current state
+            # 경쟁 조건으로 이미 좋아요 된 경우
             pass
         
     return get_playlist(db, db_playlist.id)
@@ -405,14 +405,14 @@ def unlike_playlist(db: Session, playlist_id: int, user_id: int):
     if not db_playlist or not db_user:
         return None
 
-    # Check if liked
+    # 좋아요 했는지 확인
     if db_user in db_playlist.liked_by:
         db_playlist.liked_by.remove(db_user)
         db.commit()
         db.refresh(db_playlist)
     return get_playlist(db, db_playlist.id)
 
-# --- Track CRUD ---
+# --- 트랙 CRUD ---
 
 def search_tracks(db: Session, query: str, skip: int = 0, limit: int = 100):
     if query.isdigit():
@@ -426,7 +426,7 @@ def search_tracks(db: Session, query: str, skip: int = 0, limit: int = 100):
         )
     ).offset(skip).limit(limit).all()
 
-# --- Auth ---
+# --- 인증 ---
 
 def authenticate_user(db: Session, username: str, password: str):
     user = get_user_by_username(db, username=username)

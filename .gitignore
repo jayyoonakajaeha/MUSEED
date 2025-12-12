@@ -47,3 +47,16 @@ __pycache__/
 venv/
 env/
 MuQ/
+
+# Cloudflare Tunnel
+cloudflared.yml
+*.pem
+*.json
+
+# Personal Docs
+/docs/personal_*
+/docs/*.txt
+!/docs/architecture.txt
+
+# Logs
+*.log

@@ -33,15 +33,15 @@ export default function SignupPage() {
     }
 
     setLoading(true)
-    // Changed: Removed email, added nickname
+    // 변경됨: 이메일 제거, 닉네임 추가
     const result = await registerUser({ username, nickname, password })
     setLoading(false)
 
     if (result.success) {
-      // On successful registration, redirect to the login page
+      // 가입 성공 시 로그인 페이지로 이동
       router.push("/login")
     } else {
-      // If there's an error, display it
+      // 에러 발생 시 표시
       setError(result.error || "Failed to create an account.")
     }
   }

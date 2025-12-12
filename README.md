@@ -45,6 +45,28 @@ MUSEED is a web platform that automatically generates personalized playlists by 
 
 ---
 
+## 🔬 연구 및 모델 개발 (Research & Model Development)
+
+MUSEED의 핵심 AI 엔진을 개발하기 위한 연구 코드는 `research/` 디렉토리에 정리되어 있습니다. 재현 가능한(Reproducible) 파이프라인을 위해 다음 4단계의 핵심 스크립트가 제공됩니다.
+
+### 1. 데이터 준비 (Data Preparation)
+*   **`prepare_jamendo_dataset.py`**: Jamendo 데이터셋의 다운로드부터 메타데이터 생성, 장르 매핑까지 한 번에 수행합니다.
+*   **`split_dataset.py`**: 다축 분석 결과를 바탕으로 데이터셋을 훈련/테스트 셋으로 층화 추출(Stratified Split)합니다.
+
+### 2. 임베딩 추출 (Embedding Extraction)
+*   **`extract_embeddings.py`**: 통합 임베딩 추출 스크립트입니다.
+    *   **주요 기능:** Sliding Window (10초, Overlap 없음), 배치 처리(Batch Processing), 다양한 모델(MuQ, MuLan) 지원.
+    *   **사용법:** `python extract_embeddings.py --model_path <ckpt> --input_path <jsonl> ...`
+
+### 3. 모델 학습 (Model Training)
+*   **`train_contrastive.py`**: SimCLR 기반의 대조 학습(Contrastive Learning)을 수행합니다.
+*   **`train_triplet_loss.py`**: Hard Negative Mining을 포함한 Triplet Loss 학습을 수행합니다.
+
+### 4. 성능 평가 (Evaluation)
+*   **`evaluate_model.py`**: KNN 정확도, Linear Probe F1-Score, Silhouette Score 등 정량적 지표를 측정하고 t-SNE 시각화 결과를 생성합니다.
+
+---
+
 ## 🚀 시작하기 (Getting Started)
 
 로컬 컴퓨터에서 프로젝트를 설정하고 실행하기 위한 안내입니다.
@@ -123,14 +145,62 @@ MUSEED is a web platform that automatically generates personalized playlists by 
     프론트엔드 서버가 `http://localhost:3000`에서 실행됩니다.
 
 ### 3. 외부 접속 설정 (External Access)
-
-학교 네트워크나 공유기 포트 포워딩이 어려운 환경에서도 `ngrok`을 사용하여 외부에서 접속할 수 있습니다.
-
-1.  **ngrok 실행 (Run ngrok):**
-    ```bash
-    ngrok http 3000
+ 
+ 안정적인 외부 접속을 위해 **Cloudflare Tunnel** 사용을 권장합니다. (Cloudflare Tunnel is recommended for stable external access.)
+ 
+ 1.  **Cloudflare Tunnel 설치 (Install cloudflared):**
+     *   [공식 문서](https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/install-and-setup/installation/)를 일거 설치합니다.
+ 
+ 2.  **터널 실행 (Run Tunnel):**
+     *   **개인 도메인이 없는 경우 (Free Random URL):**
+         ```bash
+         cloudflared tunnel --url http://localhost:3000
+         ```
+     *   **고정 도메인이 있는 경우 (Custom Domain):** `cloudflared.yml` 설정 후:
+         ```bash
+         cloudflared tunnel --config cloudflared.yml run
+         ```
+ 
+ ---
+ 
+ ## 🐳 Docker로 배포하기 (Deployment with Docker)
+ 
+ 2TB에 달하는 대용량 음원 데이터를 효율적으로 관리하기 위해, 데이터는 호스트(Host) 경로를 직접 마운트하는 방식(Bind Mount)을 사용합니다.
+ 
+ 1.  **필수 설치 (Prerequisites):**
+     *   [Docker Desktop](https://www.docker.com/products/docker-desktop/) or Docker Engine
+     *   [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html) (GPU 가속을 위해 필수 / Required for GPU acceleration)
+ 
+ 2.  **환경 변수 설정 (Configuration):**
+     *   프로젝트 루트(`MUSEED/`)에 `.env` 파일을 생성하고 아래 내용을 작성합니다.
+     ```env
+     # Host machine audio data paths (Absolute Path recommended)
+     FMA_DATA_PATH=/absolute/path/to/your/fma_full
+     JAMENDO_DATA_PATH=/absolute/path/to/your/jamendo_downloads
+     
+     # Database Password
+     POSTGRES_PASSWORD=secure_password
+     ```
+ 
+ 3.  **실행 (Run):**
+     ```bash
+     docker-compose up -d --build
+     ```
+     서비스가 `http://localhost:3000`에서 실행됩니다.
+ 
+ ---
+ 
+ ## 🔑 환경 변수 보안 (Environment Variables)
+ 
+ 보안을 위해 모든 민감한 정보는 `.env` 파일로 관리하며, GitHub에는 업로드되지 않습니다.
+ 
+ 1. **Backend (`backend/.env`):**
+    ```env
+    DATABASE_URL="postgresql://..."
+    JAMENDO_CLIENT_ID="your_client_id_here"  # research 스크립트에서 사용
     ```
-2.  생성된 `https://xxxx.ngrok-free.app` 주소로 접속하면 모바일 등 외부 기기에서도 모든 기능을 사용할 수 있습니다. (Access the generated URL.)
+ 
+ > **Note:** `research/` 폴더의 스크립트들은 자동으로 `backend/.env` 파일을 참조하도록 설정되어 있습니다.
 
 ---
 &copy; 2025 MUSEED. All rights reserved. Created by Jaeha Yoon.

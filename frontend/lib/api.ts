@@ -1,16 +1,26 @@
-const API_BASE_URL = '';
+const API_BASE_URL = typeof window === 'undefined' ? 'http://127.0.0.1:8000' : '';
 
 // --- Generic Fetch Helper ---
-async function apiFetch(url: string, options: RequestInit = {}) {
+export async function apiFetch(url: string, options: RequestInit = {}) {
   try {
     const response = await fetch(url, options);
-    
+
     let data = null;
     if (response.status !== 204) {
       try {
-        data = await response.json();
-      } catch (e) {
-        // Response body might be empty or not JSON
+        const text = await response.text();
+        try {
+          data = JSON.parse(text);
+        } catch {
+          // 응답 본문이 JSON이 아님 (HTML 에러 페이지 또는 일반 텍스트)
+          if (!response.ok) {
+            console.error('Non-JSON error response:', text.slice(0, 500)); // 처음 500자 로그 출력
+            throw new Error(text.length < 100 ? text : `Server Error (${response.status})`);
+          }
+        }
+      } catch (e: any) {
+        // 텍스트 읽기 또는 파싱 실패
+        if (!response.ok) throw e;
       }
     }
 
@@ -114,7 +124,7 @@ export async function getUserGenreStats(username: string, token: string | null) 
   return apiFetch(`${API_BASE_URL}/api/users/${username}/genre-stats`, { headers });
 }
 
-export async function createPlaylistFromId(name: string, seed_track_id: string, token: string) {
+export async function createPlaylistFromId(name: string, seed_track_id: string, token: string | null) {
   return apiFetch(`${API_BASE_URL}/api/playlists`, {
     method: 'POST',
     headers: {
@@ -125,7 +135,7 @@ export async function createPlaylistFromId(name: string, seed_track_id: string, 
   });
 }
 
-export async function createPlaylistFromUpload(name: string, file: File, token: string) {
+export async function createPlaylistFromUpload(name: string, file: File, token: string | null) {
   const formData = new FormData();
   formData.append('name', name);
   formData.append('file', file);
@@ -211,7 +221,7 @@ export async function likePlaylist(playlistId: number, token: string) {
   });
 }
 
-export async function unlikePlaylist(playlistId: number, token:string) {
+export async function unlikePlaylist(playlistId: number, token: string) {
   return apiFetch(`${API_BASE_URL}/api/playlists/${playlistId}/like`, {
     method: 'DELETE',
     headers: { 'Authorization': `Bearer ${token}` },
@@ -246,12 +256,20 @@ export async function getTrendingPlaylists(token: string) {
   });
 }
 
-// --- Search Functions ---
-
-export async function searchTracks(query: string, token: string) {
-  return apiFetch(`${API_BASE_URL}/api/tracks/search?q=${encodeURIComponent(query)}`, {
+export async function getUserFeed(token: string) {
+  return apiFetch(`${API_BASE_URL}/api/users/feed`, {
     headers: { 'Authorization': `Bearer ${token}` },
   });
+}
+
+// --- Search Functions ---
+
+export async function searchTracks(query: string, token: string | null) {
+  const headers: HeadersInit = {};
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  return apiFetch(`${API_BASE_URL}/api/tracks/search?q=${encodeURIComponent(query)}`, { headers });
 }
 
 export async function searchUsers(query: string, token: string) {
@@ -299,9 +317,10 @@ export async function getRecommendedUsers(token: string) {
     headers: { 'Authorization': `Bearer ${token}` },
   });
 }
-
-export async function getUserFeed(token: string) {
-  return apiFetch(`${API_BASE_URL}/api/users/feed`, {
-    headers: { 'Authorization': `Bearer ${token}` },
-  });
+export async function getTaskStatus(taskId: string, token: string | null) {
+  const headers: HeadersInit = {};
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  return apiFetch(`${API_BASE_URL}/api/playlists/task/${taskId}`, { headers });
 }

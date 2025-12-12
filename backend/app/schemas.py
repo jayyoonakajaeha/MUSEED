@@ -3,7 +3,7 @@ from typing import Optional, List, Any
 from datetime import datetime
 from . import models
 
-# --- Track Schemas ---
+# --- 트랙 스키마 ---
 class TrackBase(BaseModel):
     track_id: int
     title: str
@@ -18,7 +18,12 @@ class Track(TrackBase):
     class Config:
         from_attributes = True
 
-# --- Token Schemas ---
+# --- 토큰 스키마 ---
+class TaskSubmission(BaseModel):
+    task_id: str
+    status: str = "processing"
+    message: str = "Playlist generation started in background."
+
 class Token(BaseModel):
     access_token: str
     token_type: str
@@ -26,7 +31,7 @@ class Token(BaseModel):
 class TokenData(BaseModel):
     username: str | None = None
 
-# --- Listening History Schemas ---
+# --- 청취 기록 스키마 ---
 class ListeningHistoryBase(BaseModel):
     track_id: int
     genre: str
@@ -42,7 +47,7 @@ class ListeningHistory(ListeningHistoryBase):
     class Config:
         from_attributes = True
 
-# --- Playlist Track Schemas ---
+# --- 플레이리스트 트랙 스키마 ---
 class PlaylistTrackBase(BaseModel):
     track_id: int
 
@@ -56,14 +61,14 @@ class PlaylistTrack(PlaylistTrackBase):
     class Config:
         from_attributes = True
 
-# --- Achievement Schema ---
+# --- 업적 스키마 ---
 class Achievement(BaseModel):
     id: str
     name: str
     description: str
     icon: str 
 
-# --- Playlist Owner Schema ---
+# --- 플레이리스트 소유자 스키마 ---
 class PlaylistOwner(BaseModel):
     id: int
     username: str
@@ -72,7 +77,7 @@ class PlaylistOwner(BaseModel):
     class Config:
         from_attributes = True
 
-# --- Playlist Track Response Schema ---
+# --- 플레이리스트 트랙 응답 스키마 ---
 class PlaylistTrackResponse(BaseModel):
     id: int
     position: int
@@ -81,7 +86,7 @@ class PlaylistTrackResponse(BaseModel):
     class Config:
         from_attributes = True
 
-# --- User For List Schema (Moved Up) ---
+# --- 사용자 목록용 스키마 (상단 이동) ---
 class UserForList(BaseModel):
     id: int
     username: str
@@ -91,7 +96,7 @@ class UserForList(BaseModel):
     class Config:
         from_attributes = True
 
-# --- Playlist Schemas ---
+# --- 플레이리스트 스키마 ---
 class PlaylistBase(BaseModel):
     name: str
     is_public: bool = True
@@ -122,7 +127,7 @@ class Playlist(PlaylistBase):
     @classmethod
     def process_playlist_tracks(cls, v):
         if v and isinstance(v, list) and len(v) > 0 and isinstance(v[0], models.PlaylistTrack):
-            # We need to return the PlaylistTrack objects, but first inject audio_url into the nested track
+            # PlaylistTrack 객체 반환 필요, 중첩된 트랙에 오디오 URL 주입
             for pt in v:
                 if pt.track:
                     pt.track.audio_url = f"/api/tracks/{pt.track.track_id}/stream"
@@ -132,19 +137,19 @@ class Playlist(PlaylistBase):
     class Config:
         from_attributes = True
 
-# --- Activity Schema ---
+# --- 활동 스키마 ---
 class Activity(BaseModel):
     id: int
-    user: UserForList # Changed from PlaylistOwner to UserForList to include profile_image_key
+    user: UserForList # 프로필 이미지 포함을 위해 변경
     action_type: str
     target_playlist: Optional[Playlist] = None
-    target_user: Optional[UserForList] = None # Changed to UserForList
+    target_user: Optional[UserForList] = None # UserForList로 변경
     created_at: datetime
     
     class Config:
         from_attributes = True
 
-# --- User Schemas ---
+# --- 사용자 스키마 ---
 class UserBase(BaseModel):
     username: str
     nickname: str
@@ -183,6 +188,8 @@ class User(UserBase):
     playlists: List[Playlist] = []
     liked_playlists: List[Playlist] = []
     achievements: List[Achievement] = [] 
+    
+    profile_image_key: Optional[str] = None # Added for profile image handling
     
     is_followed_by_current_user: bool = False
     

@@ -16,7 +16,7 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { useLanguage } from "@/context/LanguageContext"
 
-// --- TYPE DEFINITIONS ---
+// --- 타입 정의 ---
 interface Playlist {
   id: number;
   name: string;
@@ -42,11 +42,12 @@ interface User {
   id: number;
   username: string;
   email: string;
+  nickname?: string;
   profile_image_key?: string;
 }
 
 interface RecommendedUser extends User {
-    similarity: number;
+  similarity: number;
 }
 
 interface SearchResults {
@@ -55,7 +56,7 @@ interface SearchResults {
   users: User[];
 }
 
-// --- DUMMY RESULT CARDS ---
+// --- 더미 결과 카드 ---
 const UserCard = ({ user }: { user: User }) => (
   <Link href={`/user/${user.username}`} className="flex items-center gap-4 p-3 rounded-lg bg-surface hover:bg-surface-elevated border border-border transition-colors">
     <Avatar>
@@ -70,98 +71,105 @@ const UserCard = ({ user }: { user: User }) => (
 );
 
 const RecommendedUserCard = ({ user, t }: { user: RecommendedUser, t: any }) => (
-    <Link href={`/user/${user.username}`} className="flex items-center gap-4 p-3 rounded-lg bg-surface hover:bg-surface-elevated border border-border transition-colors group active:scale-[0.98]">
-      <Avatar>
-        <AvatarImage src={`/profiles/${user.profile_image_key || 'Default'}.png`} />
-        <AvatarFallback>{user.username.substring(0, 2).toUpperCase()}</AvatarFallback>
-      </Avatar>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center justify-between">
-            <p className="font-semibold truncate">{user.nickname}</p>
-            <Badge variant="secondary" className="text-xs bg-primary/10 text-primary ml-2 whitespace-nowrap">
-                {Math.round(user.similarity * 100)}% {t.discover.match}
-            </Badge>
-        </div>
-        <p className="text-xs text-muted-foreground truncate">@{user.username}</p>
+  <Link href={`/user/${user.username}`} className="flex items-center gap-4 p-3 rounded-lg bg-surface hover:bg-surface-elevated border border-border transition-colors group active:scale-[0.98]">
+    <Avatar>
+      <AvatarImage src={`/profiles/${user.profile_image_key || 'Default'}.png`} />
+      <AvatarFallback>{user.username.substring(0, 2).toUpperCase()}</AvatarFallback>
+    </Avatar>
+    <div className="flex-1 min-w-0">
+      <div className="flex items-center justify-between">
+        <p className="font-semibold truncate">{user.nickname}</p>
+        <Badge variant="secondary" className="text-xs bg-primary/10 text-primary ml-2 whitespace-nowrap">
+          {Math.round(user.similarity * 100)}% {t.discover.match}
+        </Badge>
       </div>
-    </Link>
-  );
-
-const TrackCard = ({ track, onClick, onCreate }: { track: Track, onClick: () => void, onCreate: () => void }) => (
-    <div 
-      onClick={onClick}
-      className="flex items-center gap-4 p-3 rounded-lg bg-surface hover:bg-surface-elevated border border-border transition-colors cursor-pointer group relative"
-    >
-        <div className="relative">
-            <Avatar>
-                <AvatarImage src={track.album_art_url || '/dark-purple-music-waves.jpg'} />
-                <AvatarFallback><Music className="h-5 w-5" /></AvatarFallback>
-            </Avatar>
-            <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-full">
-                <Music className="h-4 w-4 text-white" />
-            </div>
-        </div>
-        <div className="flex-1 min-w-0">
-            <p className="font-semibold line-clamp-1">{track.title}</p>
-            <p className="text-sm text-muted-foreground">{track.artist_name}</p>
-        </div>
-        
-        <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-            <Button
-                variant="ghost"
-                size="sm"
-                onClick={(e) => {
-                    e.stopPropagation();
-                    onCreate();
-                }}
-            >
-                <Plus className="h-4 w-4 mr-1" />
-                Create
-            </Button>
-        </div>
+      <p className="text-xs text-muted-foreground truncate">@{user.username}</p>
     </div>
+  </Link>
+);
+
+const TrackCard = ({ track, onClick, onCreate, t }: { track: Track, onClick: () => void, onCreate: () => void, t: any }) => (
+  <div
+    onClick={onClick}
+    className="flex items-center gap-4 p-3 rounded-lg bg-surface hover:bg-surface-elevated border border-border transition-colors cursor-pointer group relative"
+  >
+    <div className="relative">
+      <Avatar>
+        <AvatarImage src={track.album_art_url || '/dark-purple-music-waves.jpg'} />
+        <AvatarFallback><Music className="h-5 w-5" /></AvatarFallback>
+      </Avatar>
+      <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-full">
+        <Music className="h-4 w-4 text-white" />
+      </div>
+    </div>
+    <div className="flex-1 min-w-0">
+      <p className="font-semibold line-clamp-1">{track.title}</p>
+      <div className="flex items-center gap-2">
+        <p className="text-sm text-muted-foreground truncate">{track.artist_name}</p>
+        {track.genre_toplevel && (
+          <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5 font-normal">
+            {track.genre_toplevel}
+          </Badge>
+        )}
+      </div>
+    </div>
+
+    <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={(e) => {
+          e.stopPropagation();
+          onCreate();
+        }}
+      >
+        <Plus className="h-4 w-4 mr-1" />
+        {t.common.create}
+      </Button>
+    </div>
+  </div>
 );
 
 
 export default function DiscoverPage() {
   const router = useRouter();
   const { token } = useAuth();
-  const { playPlaylist } = usePlayer(); 
+  const { playPlaylist } = usePlayer();
   const { t } = useLanguage();
-  
-  // State for discover
+
+  // 디스커버 상태
   const [discoverPlaylists, setDiscoverPlaylists] = useState<Playlist[]>([]);
   const [trendingPlaylists, setTrendingPlaylists] = useState<Playlist[]>([]);
   const [recommendedUsers, setRecommendedUsers] = useState<RecommendedUser[]>([]);
   const [discoverLoading, setDiscoverLoading] = useState(true);
   const [discoverError, setDiscoverError] = useState<string | null>(null);
 
-  // State for search
+  // 검색 상태
   const [searchQuery, setSearchQuery] = useState("");
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
   const [searchResults, setSearchResults] = useState<SearchResults>({ tracks: [], playlists: [], users: [] });
   const [searchLoading, setSearchLoading] = useState(false);
 
-  // Fetch initial discover data
+  // 초기 디스커버 데이터 조회
   useEffect(() => {
     const fetchData = async () => {
       setDiscoverLoading(true);
       setDiscoverError(null);
-      
-      // Determine what to fetch based on auth status
+
+      // 인증 상태 기반 조회 대상 결정
       const promises = [
-          getDiscoverPlaylists(token || ""),
-          getTrendingPlaylists(token || "")
+        getDiscoverPlaylists(token || ""),
+        getTrendingPlaylists(token || "")
       ];
-      
+
       if (token) {
-          promises.push(getRecommendedUsers(token));
+        promises.push(getRecommendedUsers(token));
       }
 
       const results = await Promise.all(promises);
       const playlistResult = results[0];
       const trendingResult = results[1];
-      const usersResult = token ? results[2] : { success: true, data: [] }; // Default empty for guests
+      const usersResult = token ? results[2] : { success: true, data: [] }; // 게스트의 경우 기본값 빈 배열
 
       if (playlistResult.success) {
         setDiscoverPlaylists(playlistResult.data);
@@ -170,11 +178,11 @@ export default function DiscoverPage() {
       }
 
       if (trendingResult.success) {
-          setTrendingPlaylists(trendingResult.data);
+        setTrendingPlaylists(trendingResult.data);
       }
 
       if (usersResult.success) {
-          setRecommendedUsers(usersResult.data);
+        setRecommendedUsers(usersResult.data);
       }
 
       setDiscoverLoading(false);
@@ -182,7 +190,7 @@ export default function DiscoverPage() {
     fetchData();
   }, [token]);
 
-  // Effect for handling search
+  // 검색 처리 이펙트
   useEffect(() => {
     if (!debouncedSearchQuery || debouncedSearchQuery.length < 2) {
       setSearchResults({ tracks: [], playlists: [], users: [] });
@@ -210,13 +218,13 @@ export default function DiscoverPage() {
   }, [debouncedSearchQuery, token]);
 
   const handlePlayTrack = (startIndex: number) => {
-      if (searchResults.tracks.length > 0) {
-          playPlaylist(searchResults.tracks, startIndex);
-      }
+    if (searchResults.tracks.length > 0) {
+      playPlaylist(searchResults.tracks, startIndex);
+    }
   };
 
   const handleCreateFromTrack = (trackId: number) => {
-      router.push(`/create?seedTrack=${trackId}`);
+    router.push(`/create?seedTrack=${trackId}`);
   };
 
   const totalResults = searchResults.tracks.length + searchResults.playlists.length + searchResults.users.length;
@@ -248,7 +256,7 @@ export default function DiscoverPage() {
 
         {/* Conditional Content: Search Results or Discover Feed */}
         {debouncedSearchQuery ? (
-          // Search Results View
+          // 검색 결과 뷰
           <div className="space-y-8">
             <h2 className="text-3xl font-bold">{t.discover.searchResults} ({searchLoading ? <Loader2 className="inline h-6 w-6 animate-spin" /> : totalResults})</h2>
             <Tabs defaultValue="all">
@@ -258,21 +266,22 @@ export default function DiscoverPage() {
                 <TabsTrigger value="playlists">{t.discover.playlists} ({searchResults.playlists.length})</TabsTrigger>
                 <TabsTrigger value="users">{t.discover.users} ({searchResults.users.length})</TabsTrigger>
               </TabsList>
-              
+
               <TabsContent value="all" className="mt-6">
                 {searchLoading && <div className="flex justify-center py-12"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>}
                 {!searchLoading && totalResults === 0 && <p>No results found for "{debouncedSearchQuery}".</p>}
-                
+
                 {searchResults.tracks.length > 0 && (
                   <div className="space-y-4">
                     <h3 className="text-xl font-semibold">{t.discover.tracks}</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {searchResults.tracks.map((track, index) => (
-                        <TrackCard 
-                            key={track.track_id} 
-                            track={track} 
-                            onClick={() => handlePlayTrack(index)}
-                            onCreate={() => handleCreateFromTrack(track.track_id)}
+                        <TrackCard
+                          key={track.track_id}
+                          track={track}
+                          onClick={() => handlePlayTrack(index)}
+                          onCreate={() => handleCreateFromTrack(track.track_id)}
+                          t={t}
                         />
                       ))}
                     </div>
@@ -299,11 +308,12 @@ export default function DiscoverPage() {
               <TabsContent value="tracks" className="mt-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {searchResults.tracks.map((track, index) => (
-                    <TrackCard 
-                        key={track.track_id} 
-                        track={track} 
-                        onClick={() => handlePlayTrack(index)}
-                        onCreate={() => handleCreateFromTrack(track.track_id)}
+                    <TrackCard
+                      key={track.track_id}
+                      track={track}
+                      onClick={() => handlePlayTrack(index)}
+                      onCreate={() => handleCreateFromTrack(track.track_id)}
+                      t={t}
                     />
                   ))}
                 </div>
@@ -321,7 +331,7 @@ export default function DiscoverPage() {
             </Tabs>
           </div>
         ) : (
-          // Discover Feed View
+          // 디스커버 피드 뷰
           <div className="space-y-12">
             {discoverLoading ? (
               <div className="flex justify-center items-center py-24">
@@ -334,21 +344,22 @@ export default function DiscoverPage() {
             ) : (
               <>
                 {/* Recommended Users Section */}
+                {/* 추천 유저 섹션 */}
                 {recommendedUsers.length > 0 && (
-                    <div>
-                        <div className="flex items-center gap-2 mb-6">
-                        <Sparkles className="h-5 w-5 text-primary" />
-                        <h2 className="text-2xl font-bold">{t.discover.recommended}</h2>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {recommendedUsers.map((user) => (
-                            <RecommendedUserCard key={user.id} user={user} t={t} />
-                        ))}
-                        </div>
+                  <div>
+                    <div className="flex items-center gap-2 mb-6">
+                      <Sparkles className="h-5 w-5 text-primary" />
+                      <h2 className="text-2xl font-bold">{t.discover.recommended}</h2>
                     </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {recommendedUsers.map((user) => (
+                        <RecommendedUserCard key={user.id} user={user} t={t} />
+                      ))}
+                    </div>
+                  </div>
                 )}
 
-                {/* Trending Playlists Section */}
+                {/* 트렌딩 플레이리스트 섹션 */}
                 {trendingPlaylists.length > 0 && (
                   <div>
                     <div className="flex items-center gap-2 mb-6">

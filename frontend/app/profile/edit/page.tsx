@@ -20,15 +20,15 @@ interface UserProfile {
 
 export default function EditProfilePage() {
   const router = useRouter()
-  const { user, token, login } = useAuth() // login is needed if token changes (not likely here but good practice)
+  const { user, token, login } = useAuth() // 토큰 변경 시 login 필요 (여기선 드물지만 좋은 관습)
   const { t } = useLanguage()
 
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [profile, setProfile] = useState<UserProfile | null>(null)
-  
+
   const [nickname, setNickname] = useState("")
-  // const [email, setEmail] = useState("") // Removed as per user request
+  // const [email, setEmail] = useState("") // 사용자 요청에 따라 제거됨
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
 
@@ -43,11 +43,11 @@ export default function EditProfilePage() {
       if (result.success) {
         setProfile(result.data)
         setNickname(result.data.nickname)
-        // setEmail(result.data.email || "") // Removed as per user request
+        // setEmail(result.data.email || "") // 사용자 요청에 따라 제거됨
       } else {
         toast({
           title: t.toast.error,
-          description: "Failed to load profile data.", // Generic fallback or add specific key if needed
+          description: "프로필 데이터를 불러오지 못했습니다.", // 일반적인 폴백 경고
           variant: "destructive",
         })
       }
@@ -71,10 +71,10 @@ export default function EditProfilePage() {
     }
 
     setIsSaving(true)
-    
+
     const updateData: any = {
       nickname,
-      // email: email || null, // Removed as per user request
+      // email: email || null, // 사용자 요청에 따라 제거됨
     }
 
     if (password) {
@@ -109,9 +109,9 @@ export default function EditProfilePage() {
 
   return (
     <div className="container max-w-2xl mx-auto py-24 px-4">
-      <Button 
-        variant="ghost" 
-        className="mb-6 pl-0 hover:bg-transparent hover:text-primary" 
+      <Button
+        variant="ghost"
+        className="mb-6 pl-0 hover:bg-transparent hover:text-primary"
         onClick={() => router.back()}
       >
         <ArrowLeft className="mr-2 h-4 w-4" />
@@ -127,21 +127,21 @@ export default function EditProfilePage() {
           <CardContent className="space-y-6">
             <div className="space-y-2">
               <Label htmlFor="username">{t.auth.username}</Label>
-              <Input 
-                id="username" 
-                value={profile?.username || ""} 
-                disabled 
-                className="bg-muted" 
+              <Input
+                id="username"
+                value={profile?.username || ""}
+                disabled
+                className="bg-muted"
               />
               <p className="text-xs text-muted-foreground">{t.profile.usernameHint}</p>
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="nickname">{t.auth.nickname}</Label>
-              <Input 
-                id="nickname" 
-                value={nickname} 
-                onChange={(e) => setNickname(e.target.value)} 
+              <Input
+                id="nickname"
+                value={nickname}
+                onChange={(e) => setNickname(e.target.value)}
                 required
               />
             </div>
@@ -149,11 +149,11 @@ export default function EditProfilePage() {
 
             <div className="space-y-2">
               <Label htmlFor="password">{t.auth.password}</Label>
-              <Input 
-                id="password" 
-                type="password" 
-                value={password} 
-                onChange={(e) => setPassword(e.target.value)} 
+              <Input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
                 placeholder={t.profile.passwordPlaceholder}
               />
             </div>
@@ -161,20 +161,20 @@ export default function EditProfilePage() {
             {password && (
               <div className="space-y-2">
                 <Label htmlFor="confirmPassword">{t.common.confirm} {t.auth.password}</Label>
-                <Input 
-                  id="confirmPassword" 
-                  type="password" 
-                  value={confirmPassword} 
-                  onChange={(e) => setConfirmPassword(e.target.value)} 
+                <Input
+                  id="confirmPassword"
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
                   required
                 />
               </div>
             )}
           </CardContent>
           <CardFooter className="flex justify-end gap-4">
-            <Button 
-              type="button" 
-              variant="outline" 
+            <Button
+              type="button"
+              variant="outline"
               onClick={() => router.back()}
               disabled={isSaving}
             >

@@ -8,7 +8,7 @@ from tqdm import tqdm
 
 # --- 분석을 위한 태그 목록 정의 ---
 
-# 2. Instrumentation Source (Acoustic vs. Electronic)
+# 2. 악기 소스 (어쿠스틱 vs 일렉트로닉)
 INSTRUMENTATION_SOURCE_TAGS = [
     'acoustic sound, natural instruments, unplugged, raw, organic, live recording',
     'electronic sound, synthesized, processed, digital instruments, programmed beats, effects, modulated'
@@ -30,7 +30,7 @@ MOOD_STYLE_TAGS = ['funky', 'groovy', 'sentimental', 'romantic', 'epic', 'cinema
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
 TRACKS_CSV_PATH = '/home/jay/MusicAI/fma/data/fma_metadata/track_toplevel_genres.csv'
 EMBEDDING_DIR = '/home/jay/MusicAI/fma_audio_embeddings/'
-OUTPUT_JSONL_PATH = '/home/jay/MusicAI/MUSEED/research/results/multi_axis_analysis_results.jsonl'
+OUTPUT_JSONL_PATH = '/home/jay/MusicAI/MUSEED/data/multi_axis_analysis_results.jsonl'
 
 # --- 유사도 계산 함수 ---
 def get_best_tag(audio_embed, text_embeds, text_labels):
@@ -40,13 +40,13 @@ def get_best_tag(audio_embed, text_embeds, text_labels):
 
 # --- 메인 분석 함수 ---
 def analyze_embedding(track_id, audio_embed, genre, text_embeds_dict):
-    # 2: Instrumentation Source (Acoustic vs. Electronic)
+    # 2: 악기 소스 (어쿠스틱 vs 일렉트로닉)
     raw_source_tag = get_best_tag(audio_embed, text_embeds_dict['source'], INSTRUMENTATION_SOURCE_TAGS)
 
-    # Map descriptive tag back to simple 'acoustic' or 'electronic'
-    if raw_source_tag == INSTRUMENTATION_SOURCE_TAGS[0]: # Acoustic descriptive tag
+    # 설명 태그를 단순 'acoustic' 또는 'electronic'으로 매핑
+    if raw_source_tag == INSTRUMENTATION_SOURCE_TAGS[0]: # 어쿠스틱 설명 태그
         source = 'acoustic'
-    else: # Electronic descriptive tag
+    else: # 일렉트로닉 설명 태그
         source = 'electronic'
 
     # 3-1: 감정가

@@ -25,7 +25,7 @@ interface PlayerContextType {
   setVolume: (volume: number) => void;
   toggleMute: () => void;
   setIsPlaying: (isPlaying: boolean) => void;
-  resetPlayer: () => void; // Added resetPlayer
+  resetPlayer: () => void; // resetPlayer 추가됨
 }
 
 const PlayerContext = createContext<PlayerContextType | undefined>(undefined);
@@ -38,14 +38,14 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const [isMuted, setIsMuted] = useState(false);
   const [currentIndex, setCurrentIndex] = useState<number>(-1);
 
-  // Reset function
+  // 초기화 함수
   const resetPlayer = useCallback(() => {
     setCurrentTrack(null);
     setPlaylist([]);
     setIsPlaying(false);
     setCurrentIndex(-1);
-    // volume and isMuted can persist or be reset too, depending on UX choice
-    // For now, let's keep them as user preferences
+    // 볼륨과 음소거 상태는 UX 선택에 따라 유지하거나 초기화 가능
+    // 현재는 사용자 설정 유지
   }, []);
 
   const playTrack = useCallback((track: Track) => {
@@ -71,14 +71,14 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
   const nextTrack = useCallback(() => {
     if (playlist.length === 0 || currentIndex === -1) return;
-    
+
     const nextIndex = currentIndex + 1;
     if (nextIndex < playlist.length) {
       setCurrentIndex(nextIndex);
       setCurrentTrack(playlist[nextIndex]);
       setIsPlaying(true);
     } else {
-      // End of playlist
+      // 플레이리스트 끝
       setIsPlaying(false);
     }
   }, [playlist, currentIndex]);
@@ -92,7 +92,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       setCurrentTrack(playlist[prevIndex]);
       setIsPlaying(true);
     } else {
-      // Restart current track logic could go here, but for now just stop or go to 0
+      // 현재 트랙 재시작 로직이 들어갈 수 있으나, 지금은 정지하거나 0초로 이동
       setCurrentIndex(0);
       setCurrentTrack(playlist[0]);
       setIsPlaying(true);
@@ -123,7 +123,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       setVolume,
       toggleMute,
       setIsPlaying,
-      resetPlayer // Included resetPlayer
+      resetPlayer // resetPlayer 포함됨
     }}>
       {children}
     </PlayerContext.Provider>

@@ -17,7 +17,7 @@ interface Track {
 
 interface TrackSearchProps {
   onSelectTrack: (track: Track) => void
-  selectedTracks?: any[] 
+  selectedTracks?: any[]
 }
 
 const getAlbumArtUrl = (url: string | null | undefined): string => {
@@ -40,11 +40,11 @@ export function TrackSearch({ onSelectTrack, selectedTracks = [] }: TrackSearchP
       setIsSearching(false);
       return;
     }
-    
+
     setIsSearching(true);
     try {
       const result = await searchTracks(searchQuery, token || "");
-      
+
       if (result.success) {
         setResults(result.data);
       } else {
@@ -65,14 +65,15 @@ export function TrackSearch({ onSelectTrack, selectedTracks = [] }: TrackSearchP
     const newQuery = e.target.value;
     setQuery(newQuery);
     setIsSearching(true);
-    debouncedSearch(newQuery);
+    debouncedSearch(newQuery); // 디바운스 검색 호출
   }
 
   const isTrackSelected = (trackId: number) => {
     if (!selectedTracks) return false;
+    // 선택된 트랙 여부 확인
     return selectedTracks.some((t) => {
-        const tId = t.track_id || t.id;
-        return tId === trackId || tId === trackId.toString();
+      const tId = t.track_id || t.id;
+      return tId === trackId || tId === trackId.toString();
     });
   }
 
@@ -105,8 +106,8 @@ export function TrackSearch({ onSelectTrack, selectedTracks = [] }: TrackSearchP
               )}
             >
               <div className="flex-shrink-0 w-12 h-12 bg-surface rounded-lg flex items-center justify-center overflow-hidden">
-                <img 
-                  src={getAlbumArtUrl(track.album_art_url)} 
+                <img
+                  src={getAlbumArtUrl(track.album_art_url)}
                   alt={track.title}
                   className="w-full h-full object-cover"
                   onError={(e) => { e.currentTarget.src = '/dark-purple-music-waves.jpg'; }}
@@ -117,7 +118,11 @@ export function TrackSearch({ onSelectTrack, selectedTracks = [] }: TrackSearchP
                 <div className="text-sm text-muted-foreground truncate">{track.artist_name}</div>
               </div>
               <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                {track.genre_toplevel && <span className="hidden sm:inline">{track.genre_toplevel}</span>}
+                {track.genre_toplevel && (
+                  <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-secondary text-secondary-foreground">
+                    {track.genre_toplevel}
+                  </span>
+                )}
                 {!isTrackSelected(track.track_id) && <Plus className="h-5 w-5 text-primary" />}
               </div>
             </button>

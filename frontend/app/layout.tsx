@@ -55,8 +55,8 @@ export default function RootLayout({
 
       <body className="min-h-screen bg-background text-foreground">
 
-        <AuthProvider>
-          <LanguageProvider>
+        <LanguageProvider>
+          <AuthProvider>
             <PlayerProvider>
 
               <PlayerAuthSync />
@@ -72,8 +72,8 @@ export default function RootLayout({
               <AudioPlayer />
               <Toaster />
             </PlayerProvider>
-          </LanguageProvider>
-        </AuthProvider>
+          </AuthProvider>
+        </LanguageProvider>
         <footer className="w-full bg-background/95 backdrop-blur border-t border-border py-6 pb-32 text-center text-sm text-muted-foreground">
           <div className="container mx-auto px-4">
             <p>&copy; {new Date().getFullYear()} MUSEED. All rights reserved.</p>

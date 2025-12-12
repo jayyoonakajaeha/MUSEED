@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button"
 import { useLanguage } from "@/context/LanguageContext"
 
 
-// Interface for the playlist object coming from the backend
+// 백엔드 플레이리스트 데이터 인터페이스
 interface Playlist {
   id: number;
   name: string;
@@ -24,40 +24,40 @@ interface Playlist {
     username: string;
     nickname?: string;
   };
-  owner_username: string; // Added for convenience
-  tracks: any[]; // We just need the count
-  is_public: boolean; // Added
-  likes_count: number; // Added
-  liked_by_user: boolean; // Added
-  // These are not yet available from the backend, so they are optional
-  coverImage?: string; 
+  owner_username?: string; // 편의상 추가
+  tracks: any[]; // 개수 확인용
+  is_public: boolean; // 추가됨
+  likes_count: number; // 추가됨
+  liked_by_user: boolean; // 추가됨
+  // 백엔드 미지원 필드 (선택사항)
+  coverImage?: string;
 }
 
 interface PlaylistCardProps {
   playlist: Playlist;
-  isOwner?: boolean; // New prop to indicate if the current user owns this playlist
-  onDelete?: (playlistId: number) => void; // New prop for delete action
-  onTogglePublic?: (playlistId: number, isPublic: boolean) => void; // New prop for public/private toggle
+  isOwner?: boolean; // 현재 사용자 소유 여부
+  onDelete?: (playlistId: number) => void; // 삭제 동작
+  onTogglePublic?: (playlistId: number, isPublic: boolean) => void; // 공개/비공개 토글
 }
 
 export function PlaylistCard({ playlist, isOwner = false, onDelete, onTogglePublic }: PlaylistCardProps) {
-  const { 
-    id, 
-    name: title, 
-    owner, 
-    tracks, 
+  const {
+    id,
+    name: title,
+    owner,
+    tracks,
     is_public,
     likes_count,
     liked_by_user,
-    coverImage, 
+    coverImage,
   } = playlist;
-  
-  // Use nickname if available, otherwise fallback to username. Handle guest playlists (no owner).
+
+  // 닉네임 우선 사용, 없을 시 Username (게스트 처리)
   const creator = owner ? (owner.nickname || owner.username) : "Guest";
   const creatorUsername = owner ? owner.username : null;
   const trackCount = tracks.length;
 
-  const { token } = useAuth();
+  const { token, refreshProfile } = useAuth();
   const { playPlaylist } = usePlayer();
   const { t } = useLanguage();
 
@@ -90,13 +90,13 @@ export function PlaylistCard({ playlist, isOwner = false, onDelete, onTogglePubl
     e.stopPropagation()
     e.preventDefault()
     if (tracks && tracks.length > 0) {
-      // Normalize tracks: check if they are nested in a 'track' property (PlaylistTrack) or direct (Track)
+      // 트랙 정규화: track 속성 중첩 여부 확인
       const playerTracks = tracks.map((t: any) => t.track ? t.track : t);
       playPlaylist(playerTracks);
     } else {
       toast({
-         title: "Empty Playlist",
-         description: "This playlist has no tracks.",
+        title: "Empty Playlist",
+        description: "This playlist has no tracks.",
       });
     }
   }
@@ -118,55 +118,57 @@ export function PlaylistCard({ playlist, isOwner = false, onDelete, onTogglePubl
     setIsLikeLoading(true);
 
     try {
-        if (liked) {
+      if (liked) {
         const result = await unlikePlaylist(id, token);
         if (result.success) {
-            setLiked(false);
-            setCurrentLikeCount(prev => prev - 1);
+          setLiked(false);
+          setCurrentLikeCount(prev => prev - 1);
+          refreshProfile(); // 통계/업적 업데이트를 위해 갱신
         } else {
-            toast({
+          toast({
             title: t.toast.error,
             description: result.error || "Failed to unlike playlist.",
             variant: "destructive",
-            });
+          });
         }
-        } else {
+      } else {
         const result = await likePlaylist(id, token);
         if (result.success) {
-            setLiked(true);
-            setCurrentLikeCount(prev => prev + 1);
+          setLiked(true);
+          setCurrentLikeCount(prev => prev + 1);
+          refreshProfile(); // "Music Lover" 업적 확인
         } else {
-            toast({
+          toast({
             title: t.toast.error,
             description: result.error || "Failed to like playlist.",
             variant: "destructive",
-            });
+          });
         }
-        }
+      }
     } finally {
-        setIsLikeLoading(false);
+      setIsLikeLoading(false);
     }
   }
 
   const handleShare = async (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
-    
+
     const shareUrl = `${window.location.origin}/playlist/${id}`;
     try {
-        await navigator.clipboard.writeText(shareUrl);
-        setIsCopied(true);
-        toast({
-            title: t.toast.linkCopied,
-            description: t.toast.linkCopiedDesc,
-        });
-        setTimeout(() => setIsCopied(false), 2000);
+      await navigator.clipboard.writeText(shareUrl);
+      setIsCopied(true);
+      toast({
+        title: t.toast.linkCopied,
+        description: t.toast.linkCopiedDesc,
+      });
+      setTimeout(() => setIsCopied(false), 2000);
     } catch (err) {
-        toast({
-            title: t.toast.shareFailed,
-            description: t.toast.shareFailedDesc,
-            variant: "destructive",
-        });
+      toast({
+        title: t.toast.shareFailed,
+        description: t.toast.shareFailedDesc,
+        variant: "destructive",
+      });
     }
   }
 
@@ -181,17 +183,17 @@ export function PlaylistCard({ playlist, isOwner = false, onDelete, onTogglePubl
     onTogglePublic?.(id, checked);
   };
 
-  // Use the first track's album art as the cover, if available.
-  // Handle both old schema (direct track object) and new schema (nested in .track)
+  // 첫 번째 트랙 앨범 아트 사용 (커버 이미지 없을 시)
+  // 구형 스키마(Track 직접/중첩) 모두 처리
   const firstTrack = tracks[0];
   let coverArt = coverImage;
-  
+
   if (!coverArt && firstTrack) {
-      if (firstTrack.track && firstTrack.track.album_art_url) {
-          coverArt = firstTrack.track.album_art_url;
-      } else if (firstTrack.album_art_url) {
-          coverArt = firstTrack.album_art_url;
-      }
+    if (firstTrack.track && firstTrack.track.album_art_url) {
+      coverArt = firstTrack.track.album_art_url;
+    } else if (firstTrack.album_art_url) {
+      coverArt = firstTrack.album_art_url;
+    }
   }
 
   const getAlbumArtUrl = (url: string | null | undefined): string => {
@@ -208,16 +210,16 @@ export function PlaylistCard({ playlist, isOwner = false, onDelete, onTogglePubl
     >
       {/* Cover Image */}
       <div className="relative aspect-square bg-surface-elevated overflow-hidden">
-        <img 
-            src={getAlbumArtUrl(coverArt)} 
-            alt={title} 
-            className="w-full h-full object-cover"
-            onError={(e) => { e.currentTarget.src = '/dark-purple-music-waves.jpg'; }}
+        <img
+          src={getAlbumArtUrl(coverArt)}
+          alt={title}
+          className="w-full h-full object-cover"
+          onError={(e) => { e.currentTarget.src = '/dark-purple-music-waves.jpg'; }}
         />
 
         {/* Play Button Overlay */}
         <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-          <button 
+          <button
             onClick={handlePlay}
             className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-full p-4 transform scale-90 group-hover:scale-100 transition-transform"
           >

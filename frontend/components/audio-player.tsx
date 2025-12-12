@@ -11,15 +11,15 @@ import { cn } from "@/lib/utils"
 
 export function AudioPlayer() {
   const { token } = useAuth();
-  const { 
-    currentTrack, 
-    isPlaying, 
-    volume, 
-    isMuted, 
-    setIsPlaying, 
-    nextTrack, 
-    previousTrack, 
-    setVolume, 
+  const {
+    currentTrack,
+    isPlaying,
+    volume,
+    isMuted,
+    setIsPlaying,
+    nextTrack,
+    previousTrack,
+    setVolume,
     toggleMute,
     playlist,
     playPlaylist
@@ -27,8 +27,8 @@ export function AudioPlayer() {
 
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
-  const [hasRecorded, setHasRecorded] = useState(false) // Added state to prevent duplicate recording
-  
+  const [hasRecorded, setHasRecorded] = useState(false) // 중복 기록 방지용 상태 추가
+
   const audioRef = useRef<HTMLAudioElement>(null);
   const progressRef = useRef<HTMLDivElement>(null)
   const API_URL = process.env.NEXT_PUBLIC_API_URL || "";
@@ -40,14 +40,14 @@ export function AudioPlayer() {
     return '/dark-purple-music-waves.jpg';
   }
 
-  // Effect to control audio playback
+  // 오디오 재생 제어 이펙트
   useEffect(() => {
     if (audioRef.current) {
       if (isPlaying) {
         const playPromise = audioRef.current.play();
         if (playPromise !== undefined) {
           playPromise.catch(error => {
-            // Ignore AbortError which happens if playback is interrupted
+            // 재생 중단 시 AbortError 무시
             if (error.name !== 'AbortError') {
               console.error("Audio play failed:", error);
             }
@@ -59,51 +59,51 @@ export function AudioPlayer() {
     }
   }, [isPlaying]);
 
-  // Effect to handle track changes
+  // 트랙 변경 처리 이펙트
   useEffect(() => {
     if (audioRef.current && currentTrack?.audio_url) {
-      // Pause current playback
+      // 현재 재생 일시정지
       audioRef.current.pause();
-      
-      // Reset recording state for new track
+
+      // 새 트랙 위해 기록 상태 초기화
       setHasRecorded(false);
-      
-      // Update source
+
+      // 소스 업데이트
       audioRef.current.src = `${API_URL}${currentTrack.audio_url}`;
       audioRef.current.load();
 
-      // If it was supposed to be playing (handled by context setting isPlaying=true on track change), play.
+      // 재생 상태였다면(Context에서 제어) 재생 시작
       if (isPlaying) {
-         const playPromise = audioRef.current.play();
-         if (playPromise !== undefined) {
-            playPromise.catch(error => {
-                if (error.name !== 'AbortError') {
-                    console.error("Audio play failed on track change:", error);
-                }
-            });
-         }
+        const playPromise = audioRef.current.play();
+        if (playPromise !== undefined) {
+          playPromise.catch(error => {
+            if (error.name !== 'AbortError') {
+              console.error("Audio play failed on track change:", error);
+            }
+          });
+        }
       }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentTrack, API_URL]); // Removed isPlaying from deps to avoid re-triggering
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentTrack, API_URL]); // 재실행 방지 위해 isPlaying 제외
 
-  // Effect to handle volume changes
+  // 볼륨 변경 처리 이펙트
   useEffect(() => {
     if (audioRef.current) {
       audioRef.current.volume = isMuted ? 0 : volume;
     }
   }, [volume, isMuted]);
-  
-  // Record listening history
+
+  // 청취 기록 저장
   useEffect(() => {
-    // Only record if not already recorded for this track
+    // 해당 트랙 미기록 시에만 실행
     if (!hasRecorded && isPlaying && currentTime > 5 && token && currentTrack?.track_id && currentTrack?.genre_toplevel) {
-      // Increased threshold to 5 seconds to be safe
+      // 안전 위해 임계값 5초로 증가
       recordListen(
         { track_id: currentTrack.track_id.toString(), genre: currentTrack.genre_toplevel },
         token
       );
-      setHasRecorded(true); // Mark as recorded
+      setHasRecorded(true); // 기록 완료 표시
     }
   }, [currentTime, isPlaying, token, currentTrack, hasRecorded]);
 
@@ -137,27 +137,27 @@ export function AudioPlayer() {
 
   return (
     <div className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur border-t border-border p-3 z-50 shadow-lg transition-transform duration-300 ease-in-out translate-y-0">
-      <audio 
-        ref={audioRef} 
-        onEnded={nextTrack} 
+      <audio
+        ref={audioRef}
+        onEnded={nextTrack}
         onTimeUpdate={onTimeUpdate}
         onLoadedMetadata={onLoadedMetadata}
       />
-      
+
       <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
-        
+
         {/* Left: Track Info */}
         <div className="flex items-center gap-3 w-1/3 min-w-0">
-            <img 
-                src={getAlbumArtUrl(currentTrack.album_art_url)} 
-                alt={currentTrack.title} 
-                className="h-12 w-12 rounded-md object-cover shadow-sm flex-shrink-0"
-                onError={(e) => { e.currentTarget.src = '/dark-purple-music-waves.jpg'; }}
-            />
-            <div className="flex flex-col min-w-0 justify-center">
-              <h3 className="font-semibold truncate text-sm md:text-base leading-tight">{currentTrack.title}</h3>
-              <p className="text-xs text-muted-foreground truncate">{currentTrack.artist_name}</p>
-            </div>
+          <img
+            src={getAlbumArtUrl(currentTrack.album_art_url)}
+            alt={currentTrack.title}
+            className="h-12 w-12 rounded-md object-cover shadow-sm flex-shrink-0"
+            onError={(e) => { e.currentTarget.src = '/dark-purple-music-waves.jpg'; }}
+          />
+          <div className="flex flex-col min-w-0 justify-center">
+            <h3 className="font-semibold truncate text-sm md:text-base leading-tight">{currentTrack.title}</h3>
+            <p className="text-xs text-muted-foreground truncate">{currentTrack.artist_name}</p>
+          </div>
         </div>
 
         {/* Center: Controls & Progress */}
@@ -205,7 +205,7 @@ export function AudioPlayer() {
 
         {/* Right: Queue & Volume */}
         <div className="flex items-center justify-end gap-4 w-1/3">
-          
+
           {/* Queue Sheet */}
           <Sheet>
             <SheetTrigger asChild>
@@ -228,12 +228,12 @@ export function AudioPlayer() {
                         currentTrack.track_id === track.track_id && "bg-accent/50 border-l-4 border-primary"
                       )}
                     >
-                       <img 
-                            src={getAlbumArtUrl(track.album_art_url)} 
-                            alt={track.title} 
-                            className="h-10 w-10 rounded object-cover"
-                            onError={(e) => { e.currentTarget.src = '/dark-purple-music-waves.jpg'; }}
-                        />
+                      <img
+                        src={getAlbumArtUrl(track.album_art_url)}
+                        alt={track.title}
+                        className="h-10 w-10 rounded object-cover"
+                        onError={(e) => { e.currentTarget.src = '/dark-purple-music-waves.jpg'; }}
+                      />
                       <div className="flex-1 min-w-0">
                         <p className={cn("text-sm font-medium truncate", currentTrack.track_id === track.track_id && "text-primary")}>
                           {track.title}
@@ -243,7 +243,7 @@ export function AudioPlayer() {
                         </p>
                       </div>
                       {currentTrack.track_id === track.track_id && (
-                          <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
+                        <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
                       )}
                     </div>
                   ))}

@@ -10,3 +10,8 @@ __pycache__/
 # SQLite database file
 *.db
 *.sqlite3
+
+# Logs
+*.log
+celerybeat-schedule
+celerybeat.pid

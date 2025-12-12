@@ -1,0 +1,130 @@
+services:
+  # 데이터베이스
+  db:
+    image: postgres:15-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: museed_db
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - museed-network
+
+  # Redis (태스크 큐 브로커)
+  redis:
+    image: redis:7-alpine
+    restart: always
+    volumes:
+      - ./data/redis:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - museed-network
+
+  # 백엔드 API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: always
+    environment:
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:-postgres}@db:5432/museed_db
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+    env_file:
+      - ./backend/.env
+    volumes:
+      - type: bind
+        source: ${FMA_DATA_PATH}
+        target: /home/jay/MusicAI/fma/data/fma_full
+        read_only: true
+      - type: bind
+        source: ${JAMENDO_DATA_PATH}
+        target: /home/jay/MusicAI/jamendo_downloads
+        read_only: true
+      - type: bind
+        source: ./data
+        target: /home/jay/MusicAI/MUSEED/data
+        read_only: true
+      # 시크릿 키 사용을 위한 .env 마운트
+      - ./backend/.env:/app/.env
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+      - redis
+    networks:
+      - museed-network
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [ gpu ]
+
+  # Celery 워커 (ML 추론)
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: always
+    command: celery -A app.worker.celery_app worker --loglevel=info -Q celery
+    environment:
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:-postgres}@db:5432/museed_db
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+      DEVICE: cuda
+    env_file:
+      - ./backend/.env
+    volumes:
+      - type: bind
+        source: ${FMA_DATA_PATH}
+        target: /home/jay/MusicAI/fma/data/fma_full
+        read_only: true
+      - type: bind
+        source: ${JAMENDO_DATA_PATH}
+        target: /home/jay/MusicAI/jamendo_downloads
+        read_only: true
+      - type: bind
+        source: ./data
+        target: /home/jay/MusicAI/MUSEED/data
+        read_only: true
+      - ./backend/.env:/app/.env
+    depends_on:
+      - db
+      - redis
+      - backend
+    networks:
+      - museed-network
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [ gpu ]
+
+  # 프론트엔드
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    restart: always
+    environment:
+      # SSR용 내부 URL (컨테이너 간 통신)
+      INTERNAL_API_URL: http://backend:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    networks:
+      - museed-network
+
+networks:
+  museed-network:
+    driver: bridge

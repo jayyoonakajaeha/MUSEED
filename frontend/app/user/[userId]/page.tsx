@@ -18,12 +18,12 @@ import { cn } from "@/lib/utils"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { useLanguage } from "@/context/LanguageContext"
 
-// Define interfaces
+// 인터페이스 정의
 interface Achievement {
-    id: string;
-    name: string;
-    description: string;
-    icon: string;
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
 }
 
 interface UserProfile {
@@ -37,6 +37,7 @@ interface UserProfile {
   following_count: number;
   is_followed_by_current_user: boolean;
   achievements: Achievement[];
+  profile_image_key?: string; // Added
 }
 
 interface Playlist {
@@ -56,6 +57,7 @@ interface Playlist {
 interface SimpleUser {
   id: number;
   username: string;
+  nickname: string;
   profile_image_key: string;
 }
 
@@ -83,7 +85,7 @@ const genreColors: { [key: string]: string } = {
   "Soul-RnB": "#FD9644",
 };
 
-// Generate a consistent color from a string
+// 문자열 기반 일관된 색상 생성
 const stringToColor = (str: string) => {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
@@ -99,7 +101,7 @@ const stringToColor = (str: string) => {
 
 export default function UserProfilePage() {
   const { userId } = useParams()
-  const { user: currentUser, token, isLoading: authLoading, logout } = useAuth()
+  const { user: currentUser, token, isLoading: authLoading, logout, refreshProfile } = useAuth()
   const router = useRouter()
   const { t } = useLanguage()
 
@@ -110,7 +112,7 @@ export default function UserProfilePage() {
   const [error, setError] = useState<string | null>(null)
   const [topGenre, setTopGenre] = useState<string | null>(null)
   const [genreStats, setGenreStats] = useState<GenreStat[]>([])
-  
+
   const [isListOpen, setIsListOpen] = useState(false)
   const [listTitle, setListTitle] = useState("")
   const [userList, setUserList] = useState<SimpleUser[]>([])
@@ -149,7 +151,7 @@ export default function UserProfilePage() {
       if (statsResult.success) {
         setTopGenre(statsResult.data.top_genre)
       }
-      
+
       if (genreStatsResult.success) {
         setGenreStats(genreStatsResult.data)
       }
@@ -186,7 +188,7 @@ export default function UserProfilePage() {
       followers_count: profileUser.followers_count + 1,
     });
 
-    const result = await followUser(username, token);
+    const result = await followUser(username || "", token);
     if (!result.success) {
       setProfileUser(originalUser);
       toast({
@@ -195,10 +197,11 @@ export default function UserProfilePage() {
         variant: "destructive",
       });
     } else {
-        toast({
-            title: t.toast.success,
-            description: t.toast.followedUser.replace("{nickname}", profileUser.nickname),
-        });
+      refreshProfile(); // Check for "Social Butterfly" achievement
+      toast({
+        title: t.toast.success,
+        description: t.toast.followedUser.replace("{nickname}", profileUser.nickname),
+      });
     }
   };
 
@@ -220,7 +223,7 @@ export default function UserProfilePage() {
       followers_count: profileUser.followers_count - 1,
     });
 
-    const result = await unfollowUser(username, token);
+    const result = await unfollowUser(username || "", token);
     if (!result.success) {
       setProfileUser(originalUser);
       toast({
@@ -229,10 +232,11 @@ export default function UserProfilePage() {
         variant: "destructive",
       });
     } else {
-        toast({
-            title: t.toast.success,
-            description: t.toast.unfollowedUser.replace("{nickname}", profileUser.nickname),
-        });
+      refreshProfile();
+      toast({
+        title: t.toast.success,
+        description: t.toast.unfollowedUser.replace("{nickname}", profileUser.nickname),
+      });
     }
   };
 
@@ -283,9 +287,9 @@ export default function UserProfilePage() {
     setIsListOpen(true);
     setListTitle(listType === 'followers' ? "Followers" : "Following");
 
-    const result = listType === 'followers' 
-      ? await getUserFollowers(username, token)
-      : await getUserFollowing(username, token);
+    const result = listType === 'followers'
+      ? await getUserFollowers(username || "", token)
+      : await getUserFollowing(username || "", token);
 
     if (result.success) {
       setUserList(result.data);
@@ -310,24 +314,27 @@ export default function UserProfilePage() {
         <h2 className="text-2xl font-bold">User Not Found or Error Loading Profile</h2>
         <p className="text-muted-foreground">{error || `The profile for "${username}" could not be loaded.`}</p>
         <div className="flex gap-2">
-            <Button variant="outline" onClick={() => { logout(); router.push("/login"); }}>
-                Go to Login
-            </Button>
-            <Button onClick={() => router.push("/discover")}>
-                Go to Discover
-            </Button>
+          <Button variant="outline" onClick={() => { logout(); router.push("/login"); }}>
+            Go to Login
+          </Button>
+          <Button onClick={() => router.push("/discover")}>
+            Go to Discover
+          </Button>
         </div>
       </div>
     )
   }
 
   const isOwnProfile = currentUser?.username === profileUser.username
-  
+
   const getProfileImage = () => {
+    if (profileUser?.profile_image_key) {
+      return `/profiles/${profileUser.profile_image_key}.png`;
+    }
     if (topGenre && genreColors[topGenre]) {
       return `/profiles/${topGenre}.png`;
     }
-    if (profileUser.playlists && profileUser.playlists.length > 0) {
+    if (profileUser?.playlists && profileUser.playlists.length > 0) {
       return `/profiles/Default_Headphone.png`;
     }
     return `/profiles/Default.png`;
@@ -337,7 +344,7 @@ export default function UserProfilePage() {
   const chartData = genreStats.map(stat => ({
     name: stat.genre,
     value: stat.count,
-    color: genreColors[stat.genre] || stringToColor(stat.genre) 
+    color: genreColors[stat.genre] || stringToColor(stat.genre)
   }));
 
   return (
@@ -345,141 +352,141 @@ export default function UserProfilePage() {
       <main className="min-h-screen py-24">
         <div className="container mx-auto px-4 max-w-6xl">
           <div className="space-y-6">
-            
-            {/* Top Section: Profile Card (2/3) + Genre Chart (1/3) */}
+
+            {/* 상단 섹션: 프로필 카드 (2/3) + 장르 차트 (1/3) */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                
-                {/* Profile Header Card */}
-                <Card className="border border-primary lg:col-span-2 h-full">
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-lg flex items-center gap-2">
-                            <User className="h-5 w-5 text-primary" /> {/* Using User icon for Profile */}
-                            {t?.profile?.profile || "Profile"}
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-6 h-full flex flex-col justify-center">
-                        <div className="flex flex-col sm:flex-row items-start gap-8">
-                            {/* Left Column: Avatar + User Info + Button */}
-                            <div className="flex flex-col items-center text-center sm:text-left sm:items-start gap-4 min-w-[160px]">
-                                <Avatar className="h-32 w-32 border-4 border-primary/20">
-                                    <AvatarImage src={profileImage} alt={profileUser.nickname || profileUser.username} className="object-contain" />
-                                    <AvatarFallback className="text-4xl bg-primary/10 text-primary">
-                                    {profileUser.username.substring(0, 2).toUpperCase()}
-                                    </AvatarFallback>
-                                </Avatar>
-                                
-                                <div className="space-y-1 w-full">
-                                    <h1 className="text-2xl font-bold break-words">{profileUser.nickname}</h1>
-                                    <p className="text-muted-foreground text-sm break-all">@{profileUser.username}</p>
-                                </div>
 
-                                {isOwnProfile ? (
-                                <div className="flex gap-2 w-full">
-                                    <Button asChild variant="outline" className="flex-1 gap-2">
-                                        <Link href="/profile/edit">
-                                        <Edit className="h-4 w-4" />
-                                        {t.profile.edit}
-                                        </Link>
-                                    </Button>
-                                    <Button onClick={logout} variant="outline" className="gap-2 text-destructive hover:text-destructive hover:bg-destructive/10">
-                                        <LogOut className="h-4 w-4" />
-                                        {t.nav.signOut}
-                                    </Button>
-                                </div>
-                                ) : (
-                                <Button onClick={profileUser.is_followed_by_current_user ? handleUnfollow : handleFollow} variant={profileUser.is_followed_by_current_user ? "secondary" : "default"} className="w-full gap-2">
-                                    {profileUser.is_followed_by_current_user ? (
-                                    <>
-                                        <UserCheck className="h-4 w-4" />
-                                        Following
-                                    </>
-                                    ) : (
-                                    <>
-                                        <UserPlus className="h-4 w-4" />
-                                        Follow
-                                    </>
-                                    )}
-                                </Button>
-                                )}
-                            </div>
+              {/* 프로필 헤더 카드 */}
+              <Card className="border border-primary lg:col-span-2 h-full">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <User className="h-5 w-5 text-primary" /> {/* 프로필용 User 아이콘 사용 */}
+                    {t?.profile?.profile || "Profile"}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-6 h-full flex flex-col justify-center">
+                  <div className="flex flex-col sm:flex-row items-start gap-8">
+                    {/* 왼쪽 컬럼: 아바타 + 유저 정보 + 버튼 */}
+                    <div className="flex flex-col items-center text-center sm:text-left sm:items-start gap-4 min-w-[160px]">
+                      <Avatar className="h-32 w-32 border-4 border-primary/20">
+                        <AvatarImage src={profileImage} alt={profileUser.nickname || profileUser.username} className="object-contain" />
+                        <AvatarFallback className="text-4xl bg-primary/10 text-primary">
+                          {profileUser.username.substring(0, 2).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
 
-                            {/* Right Column: Stats + Achievements */}
-                            <div className="flex-1 w-full flex flex-col gap-6 pt-2">
-                                {/* Stats - Evenly spaced */}
-                                <div className="grid grid-cols-3 gap-4 text-center bg-surface-elevated rounded-lg p-4 border border-border">
-                                    <div className="flex flex-col items-center justify-center">
-                                        <Music className="h-5 w-5 text-primary mb-1" />
-                                        <span className="font-bold text-lg">{profileUser.playlists.length}</span>
-                                        <span className="text-xs text-muted-foreground">{t.profile.playlists}</span>
-                                    </div>
-                                    <button onClick={() => handleShowList('followers')} className="flex flex-col items-center justify-center hover:bg-muted rounded transition-colors p-1">
-                                        <Users className="h-5 w-5 text-primary mb-1" />
-                                        <span className="font-bold text-lg">{profileUser.followers_count}</span>
-                                        <span className="text-xs text-muted-foreground">{t.profile.followers}</span>
-                                    </button>
-                                    <button onClick={() => handleShowList('following')} className="flex flex-col items-center justify-center hover:bg-muted rounded transition-colors p-1">
-                                        <Heart className="h-5 w-5 text-primary mb-1" />
-                                        <span className="font-bold text-lg">{profileUser.following_count}</span>
-                                        <span className="text-xs text-muted-foreground">{t.profile.following}</span>
-                                    </button>
-                                </div>
-                                
-                                {/* Achievements */}
-                                {profileUser.achievements && profileUser.achievements.length > 0 && (
-                                    <div className="space-y-3">
-                                        <div className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
-                                            <Award className="h-4 w-4 text-primary" />
-                                            {t.profile.achievements}
-                                        </div>
-                                        <div className="flex flex-wrap gap-3">
-                                            <TooltipProvider>
-                                                {profileUser.achievements.map((achievement) => (
-                                                    <Tooltip key={achievement.id}>
-                                                        <TooltipTrigger asChild>
-                                                            <div className="flex items-center justify-center w-12 h-12 bg-surface-elevated border border-border rounded-full text-2xl cursor-help hover:border-primary transition-colors shadow-sm">
-                                                                {achievement.icon}
-                                                            </div>
-                                                        </TooltipTrigger>
-                                                        <TooltipContent>
-                                                            <p className="font-semibold">{(t.achievements as any)[achievement.id]?.name || achievement.name}</p>
-                                                            <p className="text-xs text-muted-foreground">{(t.achievements as any)[achievement.id]?.desc || achievement.description}</p>
-                                                        </TooltipContent>
-                                                    </Tooltip>
-                                                ))}
-                                            </TooltipProvider>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
+                      <div className="space-y-1 w-full">
+                        <h1 className="text-2xl font-bold break-words">{profileUser.nickname}</h1>
+                        <p className="text-muted-foreground text-sm break-all">@{profileUser.username}</p>
+                      </div>
+
+                      {isOwnProfile ? (
+                        <div className="flex gap-2 w-full">
+                          <Button asChild variant="outline" className="flex-1 gap-2">
+                            <Link href="/profile/edit">
+                              <Edit className="h-4 w-4" />
+                              {t.profile.edit}
+                            </Link>
+                          </Button>
+                          <Button onClick={logout} variant="outline" className="gap-2 text-destructive hover:text-destructive hover:bg-destructive/10">
+                            <LogOut className="h-4 w-4" />
+                            {t.nav.signOut}
+                          </Button>
                         </div>
-                    </CardContent>
-                </Card>
+                      ) : (
+                        <Button onClick={profileUser.is_followed_by_current_user ? handleUnfollow : handleFollow} variant={profileUser.is_followed_by_current_user ? "secondary" : "default"} className="w-full gap-2">
+                          {profileUser.is_followed_by_current_user ? (
+                            <>
+                              <UserCheck className="h-4 w-4" />
+                              Following
+                            </>
+                          ) : (
+                            <>
+                              <UserPlus className="h-4 w-4" />
+                              Follow
+                            </>
+                          )}
+                        </Button>
+                      )}
+                    </div>
 
-                {/* Genre Chart Card (Right Side) */}
-                <Card className="border border-primary lg:col-span-1 h-full"> 
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-lg flex items-center gap-2">
-                            <PieChart className="h-5 w-5 text-primary" />
-                            {t.profile.topGenres}
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-4 pt-0 min-h-[250px] h-auto flex items-center justify-center">
-                        {chartData.length > 0 ? (
-                            <div className="w-full h-[250px]"> {/* Reduced height to 250px */}
-                                <GenreChart data={chartData} />
-                            </div>
-                        ) : (
-                            <p className="text-muted-foreground text-sm">{t.profile.noData}</p>
-                        )}
-                    </CardContent>
-                </Card>
+                    {/* 오른쪽 컬럼: 통계 + 업적 */}
+                    <div className="flex-1 w-full flex flex-col gap-6 pt-2">
+                      {/* 통계 - 균등 배치 */}
+                      <div className="grid grid-cols-3 gap-4 text-center bg-surface-elevated rounded-lg p-4 border border-border">
+                        <div className="flex flex-col items-center justify-center">
+                          <Music className="h-5 w-5 text-primary mb-1" />
+                          <span className="font-bold text-lg">{profileUser.playlists.length}</span>
+                          <span className="text-xs text-muted-foreground">{t.profile.playlists}</span>
+                        </div>
+                        <button onClick={() => handleShowList('followers')} className="flex flex-col items-center justify-center hover:bg-muted rounded transition-colors p-1">
+                          <Users className="h-5 w-5 text-primary mb-1" />
+                          <span className="font-bold text-lg">{profileUser.followers_count}</span>
+                          <span className="text-xs text-muted-foreground">{t.profile.followers}</span>
+                        </button>
+                        <button onClick={() => handleShowList('following')} className="flex flex-col items-center justify-center hover:bg-muted rounded transition-colors p-1">
+                          <Heart className="h-5 w-5 text-primary mb-1" />
+                          <span className="font-bold text-lg">{profileUser.following_count}</span>
+                          <span className="text-xs text-muted-foreground">{t.profile.following}</span>
+                        </button>
+                      </div>
+
+                      {/* Achievements */}
+                      {profileUser.achievements && profileUser.achievements.length > 0 && (
+                        <div className="space-y-3">
+                          <div className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
+                            <Award className="h-4 w-4 text-primary" />
+                            {t.profile.achievements}
+                          </div>
+                          <div className="flex flex-wrap gap-3">
+                            <TooltipProvider>
+                              {profileUser.achievements.map((achievement) => (
+                                <Tooltip key={achievement.id}>
+                                  <TooltipTrigger asChild>
+                                    <div className="flex items-center justify-center w-12 h-12 bg-surface-elevated border border-border rounded-full text-2xl cursor-help hover:border-primary transition-colors shadow-sm">
+                                      {achievement.icon}
+                                    </div>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p className="font-semibold">{(t.achievements as any)[achievement.id]?.name || achievement.name}</p>
+                                    <p className="text-xs text-muted-foreground">{(t.achievements as any)[achievement.id]?.desc || achievement.description}</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              ))}
+                            </TooltipProvider>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* 장르 차트 카드 (오른쪽) */}
+              <Card className="border border-primary lg:col-span-1 h-full">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <PieChart className="h-5 w-5 text-primary" />
+                    {t.profile.topGenres}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-4 pt-0 min-h-[250px] h-auto flex items-center justify-center">
+                  {chartData.length > 0 ? (
+                    <div className="w-full h-[350px]"> {/* 범례 표시 위해 높이 350px로 증가 */}
+                      <GenreChart data={chartData} />
+                    </div>
+                  ) : (
+                    <p className="text-muted-foreground text-sm">{t.profile.noData}</p>
+                  )}
+                </CardContent>
+              </Card>
             </div>
 
             {/* Playlists Section */}
             <Tabs defaultValue="my-playlists" className="w-full">
               <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger 
-                  value="my-playlists" 
+                <TabsTrigger
+                  value="my-playlists"
                   className={cn(
                     "data-[state=inactive]:hover:text-foreground data-[state=inactive]:hover:bg-foreground/5",
                     "data-[state=active]:!bg-primary data-[state=active]:!text-primary-foreground"
@@ -487,8 +494,8 @@ export default function UserProfilePage() {
                 >
                   {t.profile.myPlaylists} ({createdPlaylists.length})
                 </TabsTrigger>
-                <TabsTrigger 
-                  value="liked-playlists" 
+                <TabsTrigger
+                  value="liked-playlists"
                   className={cn(
                     "data-[state=inactive]:hover:text-foreground data-[state=inactive]:hover:bg-foreground/5",
                     "data-[state=active]:!bg-primary data-[state=active]:!text-primary-foreground"
@@ -498,42 +505,42 @@ export default function UserProfilePage() {
                 </TabsTrigger>
               </TabsList>
               <TabsContent value="my-playlists" className="mt-6">
-                  {createdPlaylists.length > 0 ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                      {createdPlaylists.map((playlist) => (
-                        <PlaylistCard 
-                          key={playlist.id} 
-                          playlist={playlist} 
-                          isOwner={isOwnProfile}
-                          onDelete={() => handleDeletePlaylist(playlist.id)}
-                          onTogglePublic={() => handleTogglePublic(playlist.id, !playlist.is_public)}
-                        />
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center py-12 text-muted-foreground">
-                      <p>{t.profile.noCreated}</p>
-                    </div>
-                  )}
+                {createdPlaylists.length > 0 ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {createdPlaylists.map((playlist) => (
+                      <PlaylistCard
+                        key={playlist.id}
+                        playlist={playlist}
+                        isOwner={isOwnProfile}
+                        onDelete={() => handleDeletePlaylist(playlist.id)}
+                        onTogglePublic={() => handleTogglePublic(playlist.id, !playlist.is_public)}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <p>{t.profile.noCreated}</p>
+                  </div>
+                )}
               </TabsContent>
               <TabsContent value="liked-playlists" className="mt-6">
-                  {likedPlaylists.length > 0 ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                      {likedPlaylists.map((playlist) => (
-                        <PlaylistCard key={playlist.id} playlist={playlist} />
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center py-12 text-muted-foreground">
-                      <p>{t.profile.noLiked}</p>
-                    </div>
-                  )}
+                {likedPlaylists.length > 0 ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {likedPlaylists.map((playlist) => (
+                      <PlaylistCard key={playlist.id} playlist={playlist} />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <p>{t.profile.noLiked}</p>
+                  </div>
+                )}
               </TabsContent>
             </Tabs>
           </div>
         </div>
       </main>
-      <UserListDialog 
+      <UserListDialog
         isOpen={isListOpen}
         onClose={() => setIsListOpen(false)}
         title={listTitle}

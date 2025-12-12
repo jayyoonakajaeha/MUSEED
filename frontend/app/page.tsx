@@ -3,7 +3,7 @@ import { PlaylistCard } from "@/components/playlist-card"
 import { TrendingUp } from "lucide-react"
 import { redirect } from "next/navigation"
 
-// Mock data for demonstration
+// 시연용 더미 데이터
 const trendingPlaylists = [
   {
     id: "1",
