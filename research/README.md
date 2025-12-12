@@ -14,20 +14,15 @@ This directory contains the Python scripts used for data analysis, model trainin
 - `analyze_from_embeddings.py`: Generates multi-axis tags (genre, mood, energy, etc.) from audio embeddings.
 - `extract_embeddings.py`: Extracts raw embeddings from audio files using the MuQ model.
 - `fma_triplet_dataset.py`: PyTorch Dataset class for loading triplets (Anchor, Positive, Negative) for training.
+- `prepare_jamendo_dataset.py`: Prepares Jamendo dataset metadata.
 
 #### Training
-- `train_triplet_loss.py`: The main script for fine-tuning the MuQ model using Triplet Loss.
-- `contrastive_loss.py`: Implementation of the loss function.
+- `train_contrastive.py`: SimCLR-based Contrastive Learning (V2 available).
+- `train_triplet_loss.py`: Fine-tuning MuQ using Triplet Loss.
+- `train_triplet_loss.py`: Fine-tuning MuQ using Triplet Loss.
 
 #### Evaluation
-- `evaluate_model.py`: Evaluates the model using metrics like Silhouette Score and generates t-SNE plots.
-
-### Results
-- `results/`: Contains JSON/JSONL files with evaluation metrics and generated tags.
-- `plots/`: Contains visualization images (e.g., t-SNE plots).
-
-### Usage
-Ensure you have the correct virtual environment activated (e.g., `MuQ`) and dependencies installed before running these scripts. You may need to adjust the file paths in the scripts to point to your local data directories.
+- `evaluate_model.py`: Evaluates the model using KNN accuracy, Silhouette Score, and generates t-SNE plots.
 
 ---
 
@@ -39,13 +34,15 @@ Ensure you have the correct virtual environment activated (e.g., `MuQ`) and depe
 - `analyze_from_embeddings.py`: 오디오 임베딩으로부터 다축 태그(장르, 분위기, 에너지 등)를 생성합니다.
 - `extract_embeddings.py`: MuQ 모델을 사용하여 오디오 파일에서 원시 임베딩을 추출합니다.
 - `fma_triplet_dataset.py`: 학습을 위한 삼중항(앵커, 긍정, 부정) 데이터를 로드하는 PyTorch Dataset 클래스입니다.
+- `prepare_jamendo_dataset.py`: Jamendo 데이터셋 메타데이터를 준비합니다.
 
 #### 학습 (Training)
-- `train_triplet_loss.py`: Triplet Loss를 사용하여 MuQ 모델을 파인튜닝하는 메인 스크립트입니다.
-- `contrastive_loss.py`: 손실 함수 구현체입니다.
+- `train_contrastive.py`: SimCLR 기반 대조 학습 스크립트입니다.
+- `train_triplet_loss.py`: Triplet Loss를 사용하여 MuQ 모델을 파인튜닝하는 스크립트입니다.
+- `train_triplet_loss.py`: Triplet Loss를 사용하여 MuQ 모델을 파인튜닝하는 스크립트입니다.
 
 #### 평가 (Evaluation)
-- `evaluate_model.py`: 실루엣 스코어(Silhouette Score) 등의 지표로 모델을 평가하고 t-SNE 시각화 그래프를 생성합니다.
+- `evaluate_model.py`: KNN 정확도, 실루엣 스코어 등으로 모델을 평가하고 t-SNE 시각화 그래프를 생성합니다.
 
 ### 결과물 (Results)
 - `results/`: 평가 지표 및 생성된 태그가 담긴 JSON/JSONL 파일들이 저장됩니다.

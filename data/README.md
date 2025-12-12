@@ -17,15 +17,17 @@ This folder is intended to store the large datasets required for training and ev
   - Extract the `fma_full` or `fma_large` dataset into a folder named `fma` within this directory or link it appropriately in the configuration scripts.
   - Expected path: `./fma/data/fma_full`
 
-#### 2. Pre-computed Embeddings
-To speed up training, we use pre-computed embeddings from the MuQ model.
-- **Folders to create:**
-  - `fma_audio_embeddings_base_muq/`: Embeddings from the base MuQ model.
-  - `fma_audio_embeddings_finetuned_muq_v3/`: Embeddings from the fine-tuned model.
-  - `track_embeddings/`: Intermediate embeddings.
+#### 2. Pre-computed Embeddings (사전 계산된 임베딩)
+To speed up training and inference, we use pre-computed embeddings.
+학습 및 추론 속도를 높이기 위해 사전 계산된 임베딩을 사용합니다.
 
-## File Structure
-After downloading, your data directory structure should look like this (conceptually):
+- **Generated Folders (생성되는 폴더):**
+  - `embeddings/`: Consolidated embeddings for serving (Train/Test/Jamendo). (서비스용 통합 임베딩)
+  - `embeddings_contrastive_v2_mean/`: Mean-pooled embeddings from the Contrastive V2 model. (Contrastive V2 모델의 평균 풀링 임베딩)
+
+## File Structure (파일 구조)
+The directory structure should look like this:
+디렉토리 구조는 다음과 같습니다:
 
 ```
 data/
@@ -33,8 +35,12 @@ data/
 │   ├── data/
 │   │   ├── fma_full/
 │   │   └── fma_metadata/
-├── fma_audio_embeddings_base_muq/
-└── ...
+├── embeddings/
+├── embeddings_contrastive_v2_mean/
+├── train_metadata.jsonl
+├── test_metadata.jsonl
+├── jamendo_rich_metadata.jsonl
+└── multi_axis_analysis_results.jsonl
 ```
 
 ---
@@ -51,14 +57,14 @@ data/
   - 예상 경로: `./fma/data/fma_full`
 
 #### 2. 사전 계산된 임베딩 (Pre-computed Embeddings)
-학습 속도를 높이기 위해 MuQ 모델에서 미리 추출한 임베딩을 사용합니다.
+학습 및 추론 속도를 높이기 위해 사전 계산된 임베딩을 사용합니다.
+
 - **생성해야 할 폴더:**
-  - `fma_audio_embeddings_base_muq/`: 기본 MuQ 모델에서 추출한 임베딩.
-  - `fma_audio_embeddings_finetuned_muq_v3/`: 파인튜닝된 모델에서 추출한 임베딩.
-  - `track_embeddings/`: 중간 단계 임베딩.
+  - `embeddings/`: 서비스용 통합 임베딩 (Train/Test/Jamendo).
+  - `embeddings_contrastive_v2_mean/`: Contrastive V2 모델의 평균 풀링 임베딩.
 
 ## 파일 구조
-다운로드 후 데이터 디렉토리 구조는 대략 다음과 같아야 합니다:
+디렉토리 구조는 다음과 같습니다:
 
 ```
 data/
@@ -66,6 +72,10 @@ data/
 │   ├── data/
 │   │   ├── fma_full/
 │   │   └── fma_metadata/
-├── fma_audio_embeddings_base_muq/
-└── ...
+├── embeddings/
+├── embeddings_contrastive_v2_mean/
+├── train_metadata.jsonl
+├── test_metadata.jsonl
+├── jamendo_rich_metadata.jsonl
+└── multi_axis_analysis_results.jsonl
 ```

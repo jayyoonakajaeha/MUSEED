@@ -11,18 +11,19 @@ This folder stores the model checkpoints and weights.
 ### MuQ Model
 The core of our recommendation engine is based on the MuQ model.
 
-- **Base Model:** We use the pre-trained `MuQ-large-msd-iter` model.
-- **Fine-tuned Model:** The model is fine-tuned using Triplet Loss on the FMA dataset.
+1. **Base Model:** `MuQ-large-msd-iter` (Pre-trained)
+2. **Fine-tuned Models:**
+    - `muq_contrastive_simclr_v2.pth`: SimCLR-based Contrastive Learning model (Used for Embeddings).
+    - `muq_finetuned_triplet_float32_v1(real).pth`: Triplet Loss fine-tuned model.
 
-### Checkpoints
-Place your `.pth` model files here.
-
-- `muq_finetuned_triplet_float32_v3.pth`: The latest fine-tuned checkpoint used for the final evaluation.
+### FAISS Index
+- `faiss_index.bin`: The vector search index built from `embeddings/`.
+- `faiss_track_ids.json`: Mapping from FAISS index IDs to Track IDs.
 
 ### Download
-If you are setting this up from scratch, you will need to either:
+If you are setting this up from scratch, you will need to:
 1. Train the model using the scripts in `../research/`.
-2. Download the pre-trained weights from external storage (link to be added).
+2. Or place your provided `.pth` and index files here.
 
 ---
 
@@ -31,15 +32,16 @@ If you are setting this up from scratch, you will need to either:
 ### MuQ 모델
 MUSEED 추천 엔진의 핵심은 MuQ 모델을 기반으로 합니다.
 
-- **기본 모델 (Base Model):** 사전 학습된 `MuQ-large-msd-iter` 모델을 사용합니다.
-- **파인튜닝 모델 (Fine-tuned Model):** FMA 데이터셋을 사용하여 Triplet Loss(삼중항 손실) 방식으로 파인튜닝되었습니다.
+1. **기본 모델 (Base Model):** `MuQ-large-msd-iter`
+2. **파인튜닝 모델 (Fine-tuned Models):**
+    - `muq_contrastive_simclr_v2.pth`: SimCLR 기반 대조 학습 모델 (임베딩 추출용).
+    - `muq_finetuned_triplet_float32_v1(real).pth`: Triplet Loss 파인튜닝 모델.
 
-### 체크포인트 (Checkpoints)
-`.pth` 모델 파일들을 이곳에 위치시켜 주세요.
-
-- `muq_finetuned_triplet_float32_v3.pth`: 최종 평가에 사용된 최신 파인튜닝 체크포인트입니다.
+### FAISS 인덱스
+- `faiss_index.bin`: `embeddings/` 데이터를 기반으로 구축된 벡터 검색 인덱스입니다.
+- `faiss_track_ids.json`: FAISS 인덱스 ID와 트랙 ID 간의 매핑 파일입니다.
 
 ### 다운로드
-이 프로젝트를 처음부터 설정하는 경우 다음 중 하나를 수행해야 합니다:
-1. `../research/` 폴더에 있는 스크립트를 사용하여 모델을 직접 학습시킵니다.
-2. 외부 저장소(링크 추가 예정)에서 사전 학습된 가중치를 다운로드합니다.
+이 프로젝트를 처음부터 설정하는 경우:
+1. `../research/` 폴더의 스크립트를 사용하여 직접 학습시킵니다.
+2. 또는 제공된 `.pth` 및 인덱스 파일을 이곳에 위치시킵니다.
