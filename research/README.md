@@ -19,7 +19,6 @@ This directory contains the Python scripts used for data analysis, model trainin
 #### Training
 - `train_contrastive.py`: SimCLR-based Contrastive Learning (V2 available).
 - `train_triplet_loss.py`: Fine-tuning MuQ using Triplet Loss.
-- `train_triplet_loss.py`: Fine-tuning MuQ using Triplet Loss.
 
 #### Evaluation
 - `evaluate_model.py`: Evaluates the model using KNN accuracy, Silhouette Score, and generates t-SNE plots.
@@ -39,7 +38,6 @@ This directory contains the Python scripts used for data analysis, model trainin
 #### 학습 (Training)
 - `train_contrastive.py`: SimCLR 기반 대조 학습 스크립트입니다.
 - `train_triplet_loss.py`: Triplet Loss를 사용하여 MuQ 모델을 파인튜닝하는 스크립트입니다.
-- `train_triplet_loss.py`: Triplet Loss를 사용하여 MuQ 모델을 파인튜닝하는 스크립트입니다.
 
 #### 평가 (Evaluation)
 - `evaluate_model.py`: KNN 정확도, 실루엣 스코어 등으로 모델을 평가하고 t-SNE 시각화 그래프를 생성합니다.
@@ -48,5 +46,41 @@ This directory contains the Python scripts used for data analysis, model trainin
 - `results/`: 평가 지표 및 생성된 태그가 담긴 JSON/JSONL 파일들이 저장됩니다.
 - `plots/`: t-SNE 그래프 등 시각화 이미지가 저장됩니다.
 
-### 사용법 (Usage)
-스크립트를 실행하기 전에 올바른 가상 환경(예: `MuQ`)이 활성화되어 있고 의존성 패키지들이 설치되어 있는지 확인하세요. 스크립트 내의 파일 경로들을 로컬 데이터 디렉토리에 맞게 수정해야 할 수도 있습니다.
+### Setup & Usage (설정 및 사용법)
+
+#### 1. Environment Setup (환경 설정)
+It is recommended to use Conda/Mamba to create a virtual environment.
+Conda/Mamba를 사용하여 가상 환경을 생성하는 것을 권장합니다.
+
+```bash
+# Create and activate environment
+mamba create -n MuQ python=3.10
+mamba activate MuQ
+
+# Install dependencies
+pip install -r requirements.txt
+```
+
+#### 2. Training (학습)
+To train the model (e.g., Contrastive Learning), run:
+모델 학습(예: Contrastive Learning)을 위해 다음 명령어를 실행합니다:
+
+```bash
+# Ensure you are in the research directory
+cd research
+
+# Run training script
+python train_contrastive.py
+```
+
+**Note:** You might need to adjust `JSONL_PATH` or data directories in the script or via environment variables.
+**참고:** 스크립트 내의 `JSONL_PATH`나 데이터 디렉토리 경로를 수정하거나 환경 변수로 설정해야 할 수 있습니다.
+
+#### 3. Evaluation (평가)
+To evaluate the trained model:
+학습된 모델을 평가하려면:
+
+```bash
+python evaluate_model.py
+```
+---

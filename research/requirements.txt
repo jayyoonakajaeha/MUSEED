@@ -1,0 +1,12 @@
+torch>=2.0.0
+torchaudio>=2.0.0
+transformers>=4.30.0
+scikit-learn
+librosa
+pandas
+wandb
+umap-learn
+tqdm
+matplotlib
+numpy
+faiss-cpu
