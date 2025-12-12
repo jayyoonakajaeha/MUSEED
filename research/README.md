@@ -46,6 +46,8 @@ This directory contains the Python scripts used for data analysis, model trainin
 - `results/`: 평가 지표 및 생성된 태그가 담긴 JSON/JSONL 파일들이 저장됩니다.
 - `plots/`: t-SNE 그래프 등 시각화 이미지가 저장됩니다.
 
+---
+
 ### Setup & Usage (설정 및 사용법)
 
 #### 1. Environment Setup (환경 설정)
