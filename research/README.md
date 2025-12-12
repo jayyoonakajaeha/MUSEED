@@ -50,6 +50,7 @@ This directory contains the Python scripts used for data analysis, model trainin
 
 #### 1. Environment Setup (환경 설정)
 It is recommended to use Conda/Mamba to create a virtual environment.
+
 Conda/Mamba를 사용하여 가상 환경을 생성하는 것을 권장합니다.
 
 ```bash
@@ -63,6 +64,7 @@ pip install -r requirements.txt
 
 #### 2. Training (학습)
 To train the model (e.g., Contrastive Learning), run:
+
 모델 학습(예: Contrastive Learning)을 위해 다음 명령어를 실행합니다:
 
 ```bash
@@ -74,6 +76,7 @@ python train_contrastive.py
 ```
 
 **Note:** You might need to adjust `JSONL_PATH` or data directories in the script or via environment variables.
+
 **참고:** 스크립트 내의 `JSONL_PATH`나 데이터 디렉토리 경로를 수정하거나 환경 변수로 설정해야 할 수 있습니다.
 
 #### 3. Evaluation (평가)
