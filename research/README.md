@@ -81,6 +81,7 @@ python train_contrastive.py
 
 #### 3. Evaluation (평가)
 To evaluate the trained model:
+
 학습된 모델을 평가하려면:
 
 ```bash
