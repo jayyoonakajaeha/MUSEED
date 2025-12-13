@@ -27,9 +27,9 @@ else:
     # Use relative paths or env vars to avoid hardcoding specific user home dir
     BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))) # MUSEED/backend/app -> MUSEED/backend -> MUSEED
     
-    # Default relative paths assume standard structure
-    DATA_ROOT = os.getenv("MUSEED_DATA_ROOT", os.path.join(BASE_DIR, "data")) # MUSEED/data
-    MODELS_ROOT = os.getenv("MUSEED_MODELS_ROOT", os.path.join(BASE_DIR, "models")) # MUSEED/models
+    # Default relative paths: Sibling directories (MusicAI_Workspace/data, MusicAI_Workspace/models)
+    DATA_ROOT = os.getenv("MUSEED_DATA_ROOT", os.path.join(BASE_DIR, "../data")) # ../MUSEED/data -> MusicAI/data
+    MODELS_ROOT = os.getenv("MUSEED_MODELS_ROOT", os.path.join(BASE_DIR, "../models")) # ../MUSEED/models -> MusicAI/models
 
     EMBEDDING_DIR = os.path.join(DATA_ROOT, 'embeddings_contrastive_v2_mean')
     FAISS_INDEX_PATH = os.path.join(MODELS_ROOT, 'faiss_index.bin')

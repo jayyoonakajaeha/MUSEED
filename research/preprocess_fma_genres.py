@@ -1,3 +1,4 @@
+import os
 import pandas as pd
 import ast
 
@@ -5,10 +6,14 @@ def main():
     """
     Processes FMA metadata to create a mapping from track_id to its top-level genre ID and name.
     """
-    base_path = '/home/jay/MusicAI/fma/data/fma_metadata/'
-    tracks_path = base_path + 'tracks.csv'
-    genres_path = base_path + 'genres.csv'
-    output_path = base_path + 'track_toplevel_genres.csv'
+    # Use relative path assuming 'fma' is a sibling directory to 'MUSEED' in 'MusicAI/fma'
+    # Default: ../../fma/data/fma_metadata/ (Adjust as needed based on unzip location)
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) # MUSEED
+    fma_root = os.getenv("FMA_METADATA_ROOT", os.path.join(base_dir, "../fma/data/fma_metadata/"))
+    
+    tracks_path = os.path.join(fma_root, 'tracks.csv')
+    genres_path = os.path.join(fma_root, 'genres.csv')
+    output_path = os.path.join(fma_root, 'track_toplevel_genres.csv')
 
     try:
         print("Loading tracks.csv and genres.csv...")

@@ -48,7 +48,6 @@ MUSEED is a web platform that automatically generates personalized playlists by 
 
 ## 🏗️ 데이터셋 구축 가이드 (Data Construction Guide)
 
-이 프로젝트의 핵심인 `data/` 폴더를 처음부터 구축(Reproduce)하는 방법입니다. (이미 구축된 데이터를 사용하는 경우 이 단계를 건너뛰세요.)
 
 ### 1단계: 메타데이터 생성 (Metadata Generation)
 다음 스크립트를 순서대로 실행하여 `.jsonl` 메타데이터 파일을 생성합니다.
@@ -56,34 +55,36 @@ MUSEED is a web platform that automatically generates personalized playlists by 
 cd MUSEED/research
 
 # 1. Jamendo 데이터셋 다운로드 및 메타데이터 생성
-python prepare_jamendo_dataset.py
+# (Sibling 폴더 'jamendo_formatted'에 저장)
+python prepare_jamendo_dataset.py --output_dir ../../jamendo_formatted --limit 200
 
 # 2. FMA 데이터셋 전처리
-# (FMA 메타데이터가 data/fma_metadata 폴더에 있다고 가정)
+# ('../../data/fma_metadata' 등이 존재해야 함)
 python preprocess_fma_genres.py 
 
 # 3. 데이터셋 분할 (Train/Test Split)
+# (../../data/multi_axis_analysis_results.jsonl 필요)
 python split_dataset.py
 ```
-**결과물:** `data/` 폴더에 `train_metadata.jsonl`, `test_metadata.jsonl` 등이 생성됩니다.
+**결과물:** `../../data/` (즉, `MusicAI_Workspace/data`) 폴더에 `train_metadata.jsonl` 등이 생성됩니다.
 
 ### 2단계: 임베딩 추출 (Embedding Extraction)
 오디오 파일에서 MuQ 임베딩을 추출합니다. (시간이 오래 걸립니다 - GPU 권장)
 ```bash
 # 통합 임베딩 추출 실행
 python extract_embeddings_mean_pooling.py \
-  --input_path ../data/train_metadata.jsonl \
-  --output_dir ../data/embeddings_contrastive_v2_mean
+  --input_path ../../data/train_metadata.jsonl \
+  --output_dir ../../data/embeddings_contrastive_v2_mean
 ```
-**결과물:** `data/embeddings_contrastive_v2_mean/` 폴더에 `.npy` 파일들이 생성됩니다.
+**결과물:** `../../data/embeddings_contrastive_v2_mean/` 폴더에 `.npy` 파일들이 생성됩니다.
 
 ### 3단계: FAISS 인덱스 빌드 (Build Search Index)
 생성된 임베딩을 검색 가능한 인덱스 파일로 변환합니다.
 ```bash
 python build_faiss_index.py
 ```
-**결과물:** `models/faiss_index.bin`, `models/faiss_track_ids.json` 파일이 생성됩니다.
-이제 백엔드 서버가 이 파일을 로드하여 유사 곡 검색을 수행할 수 있습니다.
+**결과물:** `../../models/faiss_index.bin` 파일이 생성됩니다.
+이제 백엔드 서버(`../../models` 참조)가 이 파일을 로드합니다.
 
 ---
 
@@ -120,9 +121,11 @@ python build_faiss_index.py
 **최종 폴더 구조 확인:**
 ```
 MusicAI_Workspace/
-├── MUSEED/        # 본 프로젝트 소스코드
-├── MuQ/           # 외부 라이브러리 (Clone 필수)
-└── data/          # (선택) 오디오 데이터 및 임베딩
+├── MUSEED/            # 본 프로젝트
+├── MuQ/               # 외부 라이브러리
+├── data/              # 메타데이터 및 임베딩 (train_metadata.jsonl 등)
+├── jamendo_formatted/ # Jamendo 음원 파일
+└── fma/               # FMA 음원 파일
 ```
 
 ---

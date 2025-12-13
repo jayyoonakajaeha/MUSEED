@@ -9,8 +9,8 @@ import argparse
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) # MUSEED/research -> MUSEED
 
 # Default relative paths
-DATA_ROOT = os.getenv("MUSEED_DATA_ROOT", os.path.join(BASE_DIR, "data"))
-MODELS_ROOT = os.getenv("MUSEED_MODELS_ROOT", os.path.join(BASE_DIR, "models"))
+DATA_ROOT = os.getenv("MUSEED_DATA_ROOT", os.path.join(BASE_DIR, "../data"))
+MODELS_ROOT = os.getenv("MUSEED_MODELS_ROOT", os.path.join(BASE_DIR, "../models"))
 
 # Unified embeddings directory
 EMBEDDING_DIR = os.path.join(DATA_ROOT, 'embeddings_contrastive_v2_mean')

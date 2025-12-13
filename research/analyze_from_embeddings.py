@@ -27,10 +27,17 @@ LOW_ENERGY_SUBGROUP = ['low energy', 'calm', 'relaxed', 'peaceful']
 MOOD_STYLE_TAGS = ['funky', 'groovy', 'sentimental', 'romantic', 'epic', 'cinematic', 'powerful', 'ambient', 'experimental', 'minimalist', 'strange', 'dark']
 
 # --- 설정 ---
+# --- 설정 ---
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) # MUSEED/research -> MUSEED
+DATA_ROOT = os.getenv("MUSEED_DATA_ROOT", os.path.join(BASE_DIR, "../data"))
+
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
-TRACKS_CSV_PATH = '/home/jay/MusicAI/fma/data/fma_metadata/track_toplevel_genres.csv'
-EMBEDDING_DIR = '/home/jay/MusicAI/fma_audio_embeddings/'
-OUTPUT_JSONL_PATH = '/home/jay/MusicAI/MUSEED/data/multi_axis_analysis_results.jsonl'
+
+# FMA Paths (Assumed structure: ../data/fma_metadata, ../data/fma_embeddings)
+# If running inside MUSEED/research, relative to DATA_ROOT
+TRACKS_CSV_PATH = os.getenv("FMA_METADATA_CSV", os.path.join(DATA_ROOT, 'fma_metadata/track_toplevel_genres.csv'))
+EMBEDDING_DIR = os.getenv("FMA_EMBEDDINGS_DIR", os.path.join(DATA_ROOT, 'fma_audio_embeddings'))
+OUTPUT_JSONL_PATH = os.path.join(DATA_ROOT, 'multi_axis_analysis_results.jsonl')
 
 # --- 유사도 계산 함수 ---
 def get_best_tag(audio_embed, text_embeds, text_labels):
