@@ -95,8 +95,8 @@ unzip fma_metadata.zip
 # 결과: fma/data/fma_metadata 폴더 생성
 
 # 3. 원본 오디오 다운로드 (fma_full 사용 시 800GB 주의)
-# curl -O https://os.unil.cloud.switch.ch/fma/fma_full.zip
-# unzip fma_full.zip
+curl -O https://os.unil.cloud.switch.ch/fma/fma_full.zip
+unzip fma_full.zip
 ```
 
 #### 2단계: 메타데이터 생성 (Metadata Generation)
@@ -139,10 +139,13 @@ python build_faiss_index.py
 ```
 MusicAI_Workspace/
 ├── MUSEED/            # 본 프로젝트
+│   ├── data/          # 메타데이터 및 임베딩 (train_metadata.jsonl 등)
+│   ├── backend/       # 백엔드 서버
+│   ├── frontend/      # 프론트엔드
+│   └── research/      # 연구용 스크립트
 ├── MuQ/               # 외부 라이브러리
-├── data/              # 메타데이터 및 임베딩 (train_metadata.jsonl 등)
-├── jamendo_formatted/ # Jamendo 음원 파일
-└── fma/               # FMA 음원 파일
+├── jamendo_formatted/ # Jamendo 음원 파일 (외부 Sibling)
+└── fma/               # FMA 음원 파일 (외부 Sibling)
 ```
 
 ---
@@ -214,7 +217,16 @@ AI 플레이리스트 생성 기능을 사용하려면 워커를 별도 터미�
 ---
 
 ## 🔬 연구 및 모델 개발 (Research & Model Config)
-*   **`evaluate_model.py`**: KNN 정확도, Linear Probe F1-Score, Silhouette Score 등 정량적 지표를 측정하고 t-SNE 시각화 결과를 생성합니다.
+
+MUSEED의 핵심 AI 엔진 개발 및 실험 코드는 `research/` 디렉토리에 있습니다.
+
+### 1. 모델 학습 (Model Training)
+*   **`train_contrastive.py`**: SimCLR 기반의 대조 학습(Contrastive Learning)을 수행합니다.
+*   **`train_triplet_loss.py`**: Hard Negative Mining을 포함한 Triplet Loss 학습을 수행합니다.
+
+### 2. 모델 평가 (Model Evaluation)
+*   **`evaluate_model.py`**: KNN 정확도, Linear Probe F1-Score, Silhouette Score 등 정량적 지표를 측정하고 결과를 저장합니다.
+*   **`generate_tsne_plots.py`**: Genre, Energy, Valence, 등 각 축(axis)에 대한 t-SNE 시각화 결과를 생성합니다.
 
 ### 3. 외부 접속 설정 (External Access)
  
@@ -236,8 +248,6 @@ AI 플레이리스트 생성 기능을 사용하려면 워커를 별도 터미�
  ---
  
 ## 🐳 Docker로 서비스 재현하기 (How to Reproduce with Docker)
-
-이 가이드는 빈 서버 환경에서 MUSEED 서비스를 처음부터 구축하고 실행하는 모든 과정을 상세히 설명합니다.
 
 ### 1. 사전 요구사항 (Prerequisites)
 이 프로젝트를 실행하기 위해 필요한 데이터와 도구입니다.
@@ -268,7 +278,7 @@ workspace/
 ```bash
 mkdir workspace && cd workspace
 git clone https://github.com/jayyoonakajaeha/MUSEED.git
-git clone <MuQ-Repo-URL> MuQ  # MuQ 라이브러리 접근 권한 필요
+git clone https://github.com/tencent-ailab/MuQ.git  # MuQ 라이브러리 접근 권한 필요
 ```
 
 **Step 2: MuQ 라이브러리 준비**
@@ -322,20 +332,6 @@ docker-compose up -d --build
     ```
  
  > **Note:** `research/` 폴더의 스크립트들은 자동으로 `backend/.env` 파일을 참조하도록 설정되어 있습니다.
-
-
----
-
-## 🔬 연구 및 모델 개발 (Research & Model Development)
-
-MUSEED의 핵심 AI 엔진 개발 및 실험 코드는 `research/` 디렉토리에 있습니다.
-
-### 1. 모델 학습 (Model Training)
-*   **`train_contrastive.py`**: SimCLR 기반의 대조 학습(Contrastive Learning)을 수행합니다.
-*   **`train_triplet_loss.py`**: Hard Negative Mining을 포함한 Triplet Loss 학습을 수행합니다.
-
-### 2. 모델 평가 (Model Evaluation)
-*   **`evaluate_model.py`**: KNN 정확도, Linear Probe F1-Score, Silhouette Score 등 정량적 지표를 측정하고 t-SNE 시각화 결과를 생성합니다.
 
 ---
 

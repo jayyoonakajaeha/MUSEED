@@ -20,6 +20,7 @@
 *.pyo
 *.pyd
 __pycache__/
+.env
 
 # Large Data & Models
 # Ignore everything in data and models folders...
