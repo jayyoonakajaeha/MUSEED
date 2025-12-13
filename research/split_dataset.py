@@ -6,7 +6,9 @@ from collections import Counter
 
 # Paths
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) # MUSEED/research -> MUSEED
-OUTPUT_DIR = os.getenv("MUSEED_DATA_ROOT", os.path.join(BASE_DIR, "../data"))
+# Paths
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) # MUSEED/research -> MUSEED
+OUTPUT_DIR = os.getenv("MUSEED_DATA_ROOT", os.path.join(BASE_DIR, "data"))
 
 SOURCE_JSONL = os.path.join(OUTPUT_DIR, 'multi_axis_analysis_results.jsonl')
 TRAIN_JSONL = os.path.join(OUTPUT_DIR, 'train_metadata.jsonl')

@@ -46,45 +46,7 @@ MUSEED is a web platform that automatically generates personalized playlists by 
 
 ---
 
-## 🏗️ 데이터셋 구축 가이드 (Data Construction Guide)
 
-
-### 1단계: 메타데이터 생성 (Metadata Generation)
-다음 스크립트를 순서대로 실행하여 `.jsonl` 메타데이터 파일을 생성합니다.
-```bash
-cd MUSEED/research
-
-# 1. Jamendo 데이터셋 다운로드 및 메타데이터 생성
-# (Sibling 폴더 'jamendo_formatted'에 저장)
-python prepare_jamendo_dataset.py --output_dir ../../jamendo_formatted --limit 200
-
-# 2. FMA 데이터셋 전처리
-# ('../../data/fma_metadata' 등이 존재해야 함)
-python preprocess_fma_genres.py 
-
-# 3. 데이터셋 분할 (Train/Test Split)
-# (../../data/multi_axis_analysis_results.jsonl 필요)
-python split_dataset.py
-```
-**결과물:** `../../data/` (즉, `MusicAI_Workspace/data`) 폴더에 `train_metadata.jsonl` 등이 생성됩니다.
-
-### 2단계: 임베딩 추출 (Embedding Extraction)
-오디오 파일에서 MuQ 임베딩을 추출합니다. (시간이 오래 걸립니다 - GPU 권장)
-```bash
-# 통합 임베딩 추출 실행
-python extract_embeddings_mean_pooling.py \
-  --input_path ../../data/train_metadata.jsonl \
-  --output_dir ../../data/embeddings_contrastive_v2_mean
-```
-**결과물:** `../../data/embeddings_contrastive_v2_mean/` 폴더에 `.npy` 파일들이 생성됩니다.
-
-### 3단계: FAISS 인덱스 빌드 (Build Search Index)
-생성된 임베딩을 검색 가능한 인덱스 파일로 변환합니다.
-```bash
-python build_faiss_index.py
-```
-**결과물:** `../../models/faiss_index.bin` 파일이 생성됩니다.
-이제 백엔드 서버(`../../models` 참조)가 이 파일을 로드합니다.
 
 ---
 
@@ -111,12 +73,67 @@ python build_faiss_index.py
 
     # 2. MuQ (필수 외부 라이브러리)
     git clone https://github.com/tencent-ailab/MuQ.git
+
+    # 3. FMA (데이터셋 스크립트 참조용)
+    git clone https://github.com/mdeff/fma.git
     ```
 
-3.  **데이터 준비 (Data Preparation - Optional):**
-    *   실제 AI 생성을 위해서는 `data/` 폴더에 학습된 임베딩과 오디오 파일이 필요합니다.
-    *   하지만 제출된 코드의 실행(UI/기능 확인)만을 위해서는 빈 폴더만 있어도 서버는 켜집니다.
-    *   (전체 기능을 위해서는 `../data` 위치에 FMA/Jamendo 데이터셋 필요)
+### 2. 데이터셋 구축 가이드 (Data Construction)
+이 프로젝트의 핵심인 `data/` 및 `models/` 폴더를 처음부터 구축(Reproduce)하는 방법입니다.
+
+#### 1단계: FMA 데이터셋 준비 (FMA Dataset Preparation)
+FMA 메타데이터와 오디오 파일은 `MUSEED` 폴더 밖 형제 디렉토리(`../../fma`)에 위치해야 합니다.
+```bash
+# 1. FMA 데이터 폴더 생성 (이미 git clone fma를 했다면 폴더가 있을 수 있음)
+# MUSICAI_Workspace/fma/data 위치에 데이터를 다운로드합니다.
+mkdir -p MusicAI_Workspace/fma/data
+cd MusicAI_Workspace/fma/data
+
+# 2. 메타데이터 다운로드 및 압축 해제
+curl -O https://os.unil.cloud.switch.ch/fma/fma_metadata.zip
+unzip fma_metadata.zip
+# 결과: fma/data/fma_metadata 폴더 생성
+
+# 3. 원본 오디오 다운로드 (fma_full 사용 시 800GB 주의)
+# curl -O https://os.unil.cloud.switch.ch/fma/fma_full.zip
+# unzip fma_full.zip
+```
+
+#### 2단계: 메타데이터 생성 (Metadata Generation)
+다음 스크립트를 순서대로 실행하여 `.jsonl` 메타데이터 파일을 생성합니다.
+```bash
+cd MUSEED/research
+
+# 1. Jamendo 데이터셋 다운로드
+# (음원 파일은 Sibling 폴더인 '../../jamendo_formatted'에 저장됨)
+python prepare_jamendo_dataset.py --output_dir ../../jamendo_formatted --limit 200
+
+# 2. FMA 데이터셋 전처리
+# (FMA 메타데이터가 '../../fma/data/fma_metadata'에 있어야 함)
+python preprocess_fma_genres.py 
+
+# 3. 데이터셋 분할 (Train/Test Split)
+# (결과물은 내부 'data/' 폴더에 저장됨)
+python split_dataset.py
+```
+**결과물:** `../data/` (즉, `MUSEED/data`) 폴더에 `train_metadata.jsonl` 등이 생성됩니다.
+
+#### 3단계: 임베딩 추출 (Embedding Extraction)
+오디오 파일에서 MuQ 임베딩을 추출합니다. (시간이 오래 걸립니다 - GPU 권장)
+```bash
+# 통합 임베딩 추출 실행
+python extract_embeddings_mean_pooling.py \
+  --input_path ../data/train_metadata.jsonl \
+  --output_dir ../data/embeddings_contrastive_v2_mean
+```
+**결과물:** `../data/embeddings_contrastive_v2_mean/` 폴더에 `.npy` 파일들이 생성됩니다.
+
+#### 4단계: FAISS 인덱스 빌드 (Build Search Index)
+생성된 임베딩을 검색 가능한 인덱스 파일로 변환합니다.
+```bash
+python build_faiss_index.py
+```
+**결과물:** `../models/faiss_index.bin` 파일이 생성됩니다.
 
 **최종 폴더 구조 확인:**
 ```
@@ -130,7 +147,7 @@ MusicAI_Workspace/
 
 ---
 
-### 2. 백엔드 설정 및 실행 (Backend)
+### 3. 백엔드 설정 및 실행 (Backend)
 
 1.  **디렉토리 이동:**
     ```bash
@@ -166,7 +183,7 @@ MusicAI_Workspace/
 
 ---
 
-### 3. AI 워커 실행 (AI Worker)
+### 4. AI 워커 실행 (AI Worker)
 
 AI 플레이리스트 생성 기능을 사용하려면 워커를 별도 터미널에서 실행해야 합니다.
 
@@ -180,7 +197,7 @@ AI 플레이리스트 생성 기능을 사용하려면 워커를 별도 터미�
 
 ---
 
-### 4. 프론트엔드 설정 및 실행 (Frontend)
+### 5. 프론트엔드 설정 및 실행 (Frontend)
 
 1.  **디렉토리 이동:**
     ```bash
@@ -197,10 +214,7 @@ AI 플레이리스트 생성 기능을 사용하려면 워커를 별도 터미�
 ---
 
 ## 🔬 연구 및 모델 개발 (Research & Model Config)
-*   **`evaluate_model.py`**: ... (기존 내용)
-    pnpm start
-    ```
-    프론트엔드 서버가 `http://localhost:3000`에서 실행됩니다.
+*   **`evaluate_model.py`**: KNN 정확도, Linear Probe F1-Score, Silhouette Score 등 정량적 지표를 측정하고 t-SNE 시각화 결과를 생성합니다.
 
 ### 3. 외부 접속 설정 (External Access)
  
