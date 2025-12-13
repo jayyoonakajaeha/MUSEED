@@ -27,35 +27,44 @@ graph TD
     User[사용자] --> |Web Interface| Frontend[Frontend (Next.js)]
     Frontend --> |REST API| Backend[Backend (FastAPI)]
     
-    subgraph "AI Engine (Offline & Online)"
-        Preprocessing[전처리: Resampling & Slicing]
-        MuQ[MuQ Encoder (Fine-tuned)]
-        FAISS[FAISS Vector DB]
+    subgraph "Async Processing"
+        Backend -.-> |Task Enqueue| Redis[Redis Queue]
+        Redis -.-> |Task Dequeue| Worker[Celery Worker (GPU)]
+    end
+
+    subgraph "AI Engine (In Worker)"
+        Worker --> |1. 시드 곡 오디오/ID| Preprocessing[전처리: Resampling & Slicing]
+        Preprocessing --> |2. 오디오 파형| MuQ[MuQ Encoder (Fine-tuned)]
+        MuQ --> |3. 임베딩 벡터 추출| FAISS[FAISS Vector DB]
     end
     
-    Backend --> |1. 시드 곡 오디오/ID 전송| Preprocessing
-    Preprocessing --> |2. 오디오 파형| MuQ
-    MuQ --> |3. 임베딩 벡터 추출| FAISS
-    FAISS --> |4. 유사 벡터 Top-N 검색| Backend
+    Backend --> |Long-polling/Socket| Frontend
+    
+    FAISS --> |4. 유사 벡터 Top-N 검색| Worker
+    Worker --> |5. 결과 DB 저장| DB[(PostgreSQL)]
+    
     
     subgraph "Data Persistence"
-        DB[(PostgreSQL)]
+        DB
         Storage[File Storage]
     end
     
-    Backend --> |5. 메타데이터 조회| DB
+    Backend --> |API Read| DB
     Preprocessing -.-> |Raw Audio Load| Storage
 ```
 
 ### 2.2. 구성 요소별 역할
 *   **Frontend (Next.js):** 사용자 인터페이스를 제공하며, 플레이리스트 탐색, 생성, 관리 및 소셜 활동을 위한 웹 페이지를 렌더링합니다.
-*   **Backend (FastAPI):** 사용자 인증, 데이터베이스 상호작용, AI Engine과의 통신을 포함한 모든 비즈니스 로직을 처리하는 RESTful API 서버입니다.
-*   **AI Engine (Offline & Online):**
+*   **Backend (FastAPI):** 사용자 인증, 데이터베이스 상호작용을 처리하는 RESTful API 서버입니다. 무거운 AI 작업은 직접 처리하지 않고 Redis로 위임합니다.
+*   **Async Queue (Redis & Celery):**
+    *   **Redis:** 백엔드와 워커 사이의 작업 대기열(Message Broker) 역할을 하며, 비동기 작업 상태를 관리합니다.
+    *   **Celery Worker:** 실제 GPU 리소스를 사용하여 AI 추론(Inference) 작업을 백그라운드에서 수행합니다. 이를 통해 사용자 요청 처리가 지연되지 않도록(Non-blocking) 보장합니다.
+*   **AI Engine (Inside Worker):**
     *   **Offline:** FMA 및 Jamendo 데이터셋 전체에 대한 오디오 임베딩을 추출하고 FAISS 인덱스를 구축하는 역할을 수행합니다.
     *   **Online:** 사용자 업로드 오디오의 실시간 임베딩 추출 및 FAISS를 이용한 유사도 검색을 담당합니다.
 *   **Data Persistence (DB & Storage):**
     *   **DB (PostgreSQL):** 사용자 계정, 플레이리스트 메타데이터, 트랙 정보 등 구조화된 데이터를 영구적으로 저장합니다.
-    *   **Storage (File Storage):** FMA 및 Jamendo 데이터셋의 원본 오디오 파일과 MuQ 모델에서 추출된 수십만 개의 임베딩 파일($\star$.npy)을 저장하는 역할을 합니다. **사용자 업로드 오디오 파일은 AI 분석 과정에서 임시적으로 처리된 후 영구적으로 저장되지 않습니다.**
+    *   **Storage (File Storage):** FMA/Jamendo 원본 오디오 파일 및 임베딩 파일을 저장합니다. Docker 환경에서는 Bind Mount를 통해 호스트 데이터를 참조합니다.
 
 ### 2.3. 핵심 데이터 흐름 (Data Flow)
 1.  **Input:** 사용자가 라이브러리에서 곡을 선택하거나 MP3 파일을 업로드합니다.
@@ -208,6 +217,15 @@ FMA 데이터셋은 Electronic(25%) 장르가 압도적으로 많고 Easy Listen
 *   **Undersampling:** 다수 장르(Electronic 등)에 대해서는 에폭(Epoch)당 샘플 수를 제한(Capping at 2,000)하여 과적합을 방지했습니다.
 *   **Oversampling:** 소수 장르에 대해서는 중복 샘플링을 허용하여 배치 내 출현 빈도를 높였습니다.
 *   **Result:** 학습 과정에서 모델이 다양한 장르의 곡을 균형 있게 접하게 되어, 소수 장르에 대한 임베딩 품질이 크게 향상되었습니다.
+
+### 5.4. 모델 최적화 및 경량화 (Optimization & Quantization)
+
+실제 서비스 환경에서의 응답 속도와 비용 효율성을 극대화하기 위해, 학습된 모델을 경량화하는 과정을 수행했습니다.
+
+*   **FP16 Half Precision Conversion:**
+    *   기존 32-bit Floating Point 모델을 16-bit Half Precision으로 변환하여 모델 크기를 **50% 절감**했습니다.
+    *   **Memory Usage:** GPU VRAM 사용량을 현저히 낮추어, 단일 GPU에서 더 많은 동시 요청(Concurrency) 처리가 가능해졌습니다.
+    *   **Inference Speed:** Tensor Core 가속을 활용하여, 10초 오디오 세그먼트에 대한 추론 시간을 **약 0.1초** 수준으로 단축했습니다.
 
 ---
 

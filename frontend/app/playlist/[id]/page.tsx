@@ -97,7 +97,7 @@ export default function PlaylistPage() {
   const playlistId = params.id as string;
 
   useEffect(() => {
-    if (!playlistId) return;
+    if (!playlistId || playlistId === "undefined") return;
 
     const fetchPlaylist = async () => {
       setIsLoading(true)

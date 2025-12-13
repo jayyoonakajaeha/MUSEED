@@ -10,18 +10,22 @@ from .. import crud, schemas, models
 from ..dependencies import get_db, get_current_user, get_current_user_optional
 from ..tasks import generate_playlist_task, generate_playlist_from_id_task
 
-# --- Router Setup ---
+# --- 라우터 설정 ---
 router = APIRouter(
     prefix="/api/playlists",
     tags=["playlists"]
 )
 
 # --- Constants ---
-TEMP_UPLOAD_DIR = "/tmp/museed_uploads"
+# --- 상수 및 경로 설정 ---
+# 도커 vs 로컬 환경 호환을 위해 상대 경로 사용 ('/app/uploads' -> 'uploads')
+# Docker에서는 WORKDIR가 /app 이므로 'uploads'는 '/app/uploads'가 됨.
+# 로컬에서는 프로젝트 루트의 'uploads' 폴더가 됨.
+TEMP_UPLOAD_DIR = "uploads"
 os.makedirs(TEMP_UPLOAD_DIR, exist_ok=True)
 
 
-# --- API Endpoints ---
+# --- API 엔드포인트 정의 ---
 
 @router.get("/discover", response_model=List[schemas.Playlist])
 def get_discover_playlists(
@@ -241,20 +245,7 @@ def delete_playlist_entry(
     
     return {"message": "Playlist entry removed successfully"}
 
-@router.put("/{playlist_id}/tracks/reorder", status_code=status.HTTP_200_OK)
-def reorder_playlist_tracks(
-    playlist_id: int,
-    reorder_request: schemas.BaseModel, # Using base model as wrapper if explicit class not available here, but verify imports
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user)
-):
-    # Need to redefine ReorderTracksRequest here or import?
-    # It was defined inline previously.
-    # Let's import logic or define it.
-    pass 
-    # Wait, I am overwriting the file. I should copy the existing CRUD logic properly.
-    # ReorderTracksRequest was defined in previous file. I'll re-add it.
-
+# --- Reorder Request Schema ---
 class ReorderTracksRequest(schemas.BaseModel):
     track_ids: List[int]
 

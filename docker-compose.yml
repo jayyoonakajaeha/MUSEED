@@ -25,7 +25,7 @@ services:
     networks:
       - museed-network
 
-  # 백엔드 API
+  # Backend API Application
   backend:
     build:
       context: ./backend
@@ -38,20 +38,36 @@ services:
     env_file:
       - ./backend/.env
     volumes:
+      # Mount Host Audio Data (READ-ONLY)
       - type: bind
         source: ${FMA_DATA_PATH}
-        target: /home/jay/MusicAI/fma/data/fma_full
+        target: /app/data/fma_full
         read_only: true
       - type: bind
         source: ${JAMENDO_DATA_PATH}
-        target: /home/jay/MusicAI/jamendo_downloads
+        target: /app/data/jamendo_downloads
+        read_only: true
+      # Mount Metadata & Embeddings (Explicit)
+      - type: bind
+        source: /home/jay/MusicAI/fma/data/fma_metadata
+        target: /app/data/fma_metadata
         read_only: true
       - type: bind
-        source: ./data
-        target: /home/jay/MusicAI/MUSEED/data
+        source: /home/jay/MusicAI/MUSEED/data/embeddings_contrastive_v2_mean
+        target: /app/data/embeddings
         read_only: true
-      # 시크릿 키 사용을 위한 .env 마운트
+      # Mount Models
+      - type: bind
+        source: /home/jay/MusicAI/MUSEED/models
+        target: /app/models
+        read_only: true
+      # Secret Management
       - ./backend/.env:/app/.env
+      # Shared Uploads
+      - type: volume
+        source: museed_uploads
+        target: /app/uploads
+
     ports:
       - "8000:8000"
     depends_on:
@@ -67,13 +83,13 @@ services:
               count: 1
               capabilities: [ gpu ]
 
-  # Celery 워커 (ML 추론)
+  # Celery Worker (reuse backend image)
   worker:
     build:
       context: ./backend
       dockerfile: Dockerfile
     restart: always
-    command: celery -A app.worker.celery_app worker --loglevel=info -Q celery
+    command: /bin/sh -c "celery -A app.worker.celery_app worker --loglevel=info -P solo -Q celery"
     environment:
       DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:-postgres}@db:5432/museed_db
       CELERY_BROKER_URL: redis://redis:6379/0
@@ -84,17 +100,29 @@ services:
     volumes:
       - type: bind
         source: ${FMA_DATA_PATH}
-        target: /home/jay/MusicAI/fma/data/fma_full
+        target: /app/data/fma_full
         read_only: true
       - type: bind
         source: ${JAMENDO_DATA_PATH}
-        target: /home/jay/MusicAI/jamendo_downloads
+        target: /app/data/jamendo_downloads
         read_only: true
       - type: bind
-        source: ./data
-        target: /home/jay/MusicAI/MUSEED/data
+        source: /home/jay/MusicAI/fma/data/fma_metadata
+        target: /app/data/fma_metadata
+        read_only: true
+      - type: bind
+        source: /home/jay/MusicAI/MUSEED/data/embeddings_contrastive_v2_mean
+        target: /app/data/embeddings
+        read_only: true
+      - type: bind
+        source: /home/jay/MusicAI/MUSEED/models
+        target: /app/models
         read_only: true
       - ./backend/.env:/app/.env
+      - type: volume
+        source: museed_uploads
+        target: /app/uploads
+
     depends_on:
       - db
       - redis
@@ -128,3 +156,8 @@ services:
 networks:
   museed-network:
     driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+  museed_uploads:

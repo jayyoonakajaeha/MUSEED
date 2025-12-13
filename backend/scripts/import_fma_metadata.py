@@ -12,9 +12,21 @@ from app.database import engine
 from app import models
 
 # --- Configuration ---
-FMA_DATA_PATH = '/home/jay/MusicAI/fma/data'
-FMA_METADATA_PATH = os.path.join(FMA_DATA_PATH, 'fma_metadata')
-FMA_EMBEDDINGS_PATH = '/home/jay/MusicAI/fma_audio_embeddings_base_muq'
+# Detect environment: Docker (has /app/data) vs Local (Host)
+
+if os.path.exists('/app/data'):
+    # Docker Environment
+    print("Detected Docker Environment. Using container paths.")
+    FMA_DATA_PATH = '/app/data'
+    FMA_METADATA_PATH = '/app/data/fma_metadata'
+    FMA_EMBEDDINGS_PATH = '/app/data/embeddings'
+else:
+    # Local Host Environment (Default)
+    print("Detected Local Environment. Using host paths.")
+    FMA_DATA_PATH = '/home/jay/MusicAI/fma/data'
+    FMA_METADATA_PATH = os.path.join(FMA_DATA_PATH, 'fma_metadata')
+    FMA_EMBEDDINGS_PATH = '/home/jay/MusicAI/MUSEED/data/embeddings_contrastive_v2_mean'
+
 # Change source to raw_tracks.csv
 FMA_TRACKS_CSV_PATH = os.path.join(FMA_METADATA_PATH, 'raw_tracks.csv') 
 FMA_GENRES_CSV_PATH = os.path.join(FMA_METADATA_PATH, 'genres.csv')

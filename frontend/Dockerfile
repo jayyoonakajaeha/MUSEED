@@ -9,8 +9,11 @@ FROM node:18-alpine AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-# 빌드 타임 환경변수 (Next.js에 필요한 경우)
-# NEXT_PUBLIC_API_URL은 클라이언트/런타임에서 처리됨 가정
+
+# 빌드 타임 환경변수 주입 (클라이언트 사이드에서 필요)
+ARG NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+
 RUN npm install -g pnpm && pnpm run build
 
 # 3단계: 런너

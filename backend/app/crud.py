@@ -371,6 +371,9 @@ def reorder_playlist_tracks(db: Session, playlist_id: int, track_ids: List[int])
 def delete_playlist(db: Session, playlist_id: int):
     db_playlist = db.query(models.Playlist).filter(models.Playlist.id == playlist_id).first()
     if db_playlist:
+        # Fix: Manually delete related Activities to prevent FK violation
+        db.query(models.Activity).filter(models.Activity.target_playlist_id == playlist_id).delete(synchronize_session=False)
+        
         db.delete(db_playlist)
         db.commit()
         return True

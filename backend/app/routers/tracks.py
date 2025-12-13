@@ -12,8 +12,15 @@ router = APIRouter(
     tags=["tracks"],
 )
 
-FMA_FULL_PATH = "/home/jay/MusicAI/fma/data/fma_full"
-JAMENDO_DIR = "/home/jay/MusicAI/jamendo_downloads"
+# Path Configuration (Environment Aware)
+if os.path.exists('/app/data/fma_full'):
+    # Docker Environment
+    FMA_FULL_PATH = "/app/data/fma_full"
+    JAMENDO_DIR = "/app/data/jamendo_downloads"
+else:
+    # Local/Host Environment
+    FMA_FULL_PATH = "/home/jay/MusicAI/fma/data/fma_full"
+    JAMENDO_DIR = "/home/jay/MusicAI/jamendo_downloads"
 
 def get_track_path(track_id: int, db: Session) -> Optional[str]:
     """

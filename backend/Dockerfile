@@ -19,6 +19,10 @@ RUN apt-get update && apt-get install -y \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# MuQ 로컬 패키지 설치 (Vendored)
+COPY muq_pkg muq_pkg
+RUN pip install --no-cache-dir -e muq_pkg
+
 # 애플리케이션 코드 복사
 COPY . .
 
