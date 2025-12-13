@@ -61,7 +61,7 @@ export function PlaylistEditDialog({ isOpen, onClose, playlist, onUpdate }: Play
         title: "Success",
         description: "Playlist updated successfully.",
       })
-      onUpdate({ name, is_public: isPublic }) // 부모 컴포넌트에 업데이트 알림
+      onUpdate({ name, is_public: isPublic }) // parent component 업데이트 알림
       onClose()
     } else {
       setError(result.error || "Failed to update playlist.")

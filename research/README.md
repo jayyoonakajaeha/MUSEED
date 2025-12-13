@@ -1,8 +1,7 @@
 # MUSEED Research & AI Scripts / MUSEED 연구 및 AI 스크립트
 
-This directory contains the Python scripts used for data analysis, model training, and evaluation.
-
-이 디렉토리에는 데이터 분석, 모델 학습 및 평가에 사용되는 Python 스크립트들이 포함되어 있습니다.
+This directory contains the Python scripts used for data analysis, model training, evaluation, and visualization.
+이 디렉토리에는 데이터 분석, 모델 학습, 평가 및 시각화에 사용되는 Python 스크립트들이 포함되어 있습니다.
 
 ---
 
@@ -10,18 +9,23 @@ This directory contains the Python scripts used for data analysis, model trainin
 
 ### Key Scripts
 
-#### Data Processing
-- `analyze_from_embeddings.py`: Generates multi-axis tags (genre, mood, energy, etc.) from audio embeddings.
-- `extract_embeddings.py`: Extracts raw embeddings from audio files using the MuQ model.
-- `fma_triplet_dataset.py`: PyTorch Dataset class for loading triplets (Anchor, Positive, Negative) for training.
-- `prepare_jamendo_dataset.py`: Prepares Jamendo dataset metadata.
+#### 1. Data Preparation (데이터 준비)
+- **`prepare_jamendo_dataset.py`**: Downloads Jamendo dataset and prepares metadata.
+  - Output: `../../jamendo_formatted` (Sibling directory).
+- **`preprocess_fma_genres.py`**: Pre-processes FMA metadata (requires FMA data in `../../fma`).
+- **`split_dataset.py`**: Splits the analyzed data into Train/Test sets.
+- **`build_faiss_index.py`**: Builds the FAISS index from generated embeddings for the backend.
+- **`extract_embeddings_mean_pooling.py`**: Extracts mean-pooled embeddings from audio files using MuQ (Recommended).
+- **`extract_embeddings.py`**: Legacy script for raw embedding extraction.
 
-#### Training
-- `train_contrastive.py`: SimCLR-based Contrastive Learning (V2 available).
-- `train_triplet_loss.py`: Fine-tuning MuQ using Triplet Loss.
+#### 2. Training (학습)
+- **`train_contrastive.py`**: SimCLR-based Contrastive Learning (V2 available).
+- **`train_triplet_loss.py`**: Fine-tuning MuQ using Triplet Loss with Hard Negative Mining.
 
-#### Evaluation
-- `evaluate_model.py`: Evaluates the model using KNN accuracy, Silhouette Score, and generates t-SNE plots.
+#### 3. Evaluation & Analysis (평가 및 분석)
+- **`evaluate_model.py`**: Evaluates the model using KNN accuracy, Silhouette Score, and generates t-SNE plots.
+- **`generate_tsne_plots.py`**: Generates t-SNE visualization plots for different axes (Genre, Energy, Mood).
+- **`analyze_from_embeddings.py`**: Generates multi-axis tags (genre, mood, energy) from audio embeddings.
 
 ---
 
@@ -29,64 +33,26 @@ This directory contains the Python scripts used for data analysis, model trainin
 
 ### 주요 스크립트
 
-#### 데이터 처리 (Data Processing)
-- `analyze_from_embeddings.py`: 오디오 임베딩으로부터 다축 태그(장르, 분위기, 에너지 등)를 생성합니다.
-- `extract_embeddings.py`: MuQ 모델을 사용하여 오디오 파일에서 원시 임베딩을 추출합니다.
-- `fma_triplet_dataset.py`: 학습을 위한 삼중항(앵커, 긍정, 부정) 데이터를 로드하는 PyTorch Dataset 클래스입니다.
-- `prepare_jamendo_dataset.py`: Jamendo 데이터셋 메타데이터를 준비합니다.
+#### 1. 데이터 준비 (Data Preparation)
+- **`prepare_jamendo_dataset.py`**: Jamendo 데이터셋 다운로드 및 메타데이터 준비 (결과물: `../../jamendo_formatted`).
+- **`preprocess_fma_genres.py`**: FMA 메타데이터 전처리 (`../../fma` 경로 필요).
+- **`split_dataset.py`**: 데이터셋을 학습/테스트 셋으로 분할합니다.
+- **`build_faiss_index.py`**: 생성된 임베딩으로 백엔드 검색용 FAISS 인덱스를 생성합니다.
+- **`extract_embeddings_mean_pooling.py`**: 오디오 파일에서 평균 풀링(Mean Pooling)된 임베딩을 추출합니다 (권장).
+- **`extract_embeddings.py`**: (구버전) 원시 임베딩 추출 스크립트.
 
-#### 학습 (Training)
-- `train_contrastive.py`: SimCLR 기반 대조 학습 스크립트입니다.
-- `train_triplet_loss.py`: Triplet Loss를 사용하여 MuQ 모델을 파인튜닝하는 스크립트입니다.
+#### 2. 학습 (Training)
+- **`train_contrastive.py`**: SimCLR 기반 대조 학습 스크립트입니다.
+- **`train_triplet_loss.py`**: Hard Negative Mining을 포함한 Triplet Loss 파인튜닝 스크립트입니다.
 
-#### 평가 (Evaluation)
-- `evaluate_model.py`: KNN 정확도, 실루엣 스코어 등으로 모델을 평가하고 t-SNE 시각화 그래프를 생성합니다.
-
-### 결과물 (Results)
-- `results/`: 평가 지표 및 생성된 태그가 담긴 JSON/JSONL 파일들이 저장됩니다.
-- `plots/`: t-SNE 그래프 등 시각화 이미지가 저장됩니다.
+#### 3. 평가 및 분석 (Evaluation & Analysis)
+- **`evaluate_model.py`**: KNN 정확도, 실루엣 스코어 등으로 모델을 평가합니다.
+- **`generate_tsne_plots.py`**: 장르, 에너지, 무드 등 다양한 축에 대한 t-SNE 시각화 그래프를 생성합니다.
+- **`analyze_from_embeddings.py`**: 오디오 임베딩으로부터 다축 태그(장르, 분위기, 에너지 등)를 분석 및 생성합니다.
 
 ---
 
-### Setup & Usage (설정 및 사용법)
+### Setup & Usage
 
-#### 1. Environment Setup (환경 설정)
-It is recommended to use Conda/Mamba to create a virtual environment.
-
-Conda/Mamba를 사용하여 가상 환경을 생성하는 것을 권장합니다.
-
-```bash
-# Create and activate environment
-mamba create -n MuQ python=3.10
-mamba activate MuQ
-
-# Install dependencies
-pip install -r requirements.txt
-```
-
-#### 2. Training (학습)
-To train the model (e.g., Contrastive Learning), run:
-
-모델 학습(예: Contrastive Learning)을 위해 다음 명령어를 실행합니다:
-
-```bash
-# Ensure you are in the research directory
-cd research
-
-# Run training script
-python train_contrastive.py
-```
-
-**Note:** You might need to adjust `JSONL_PATH` or data directories in the script or via environment variables.
-
-**참고:** 스크립트 내의 `JSONL_PATH`나 데이터 디렉토리 경로를 수정하거나 환경 변수로 설정해야 할 수 있습니다.
-
-#### 3. Evaluation (평가)
-To evaluate the trained model:
-
-학습된 모델을 평가하려면:
-
-```bash
-python evaluate_model.py
-```
----
+Refer to the main **`../README.md`** for detailed usage instructions and environment setup.
+자세한 사용법 및 환경 설정은 메인 **`../README.md`**를 참고하세요.
