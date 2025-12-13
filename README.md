@@ -42,143 +42,159 @@ MUSEED is a web platform that automatically generates personalized playlists by 
 - **Database**: PostgreSQL
 - **Async Queue**: Redis, Celery (for Background AI Tasks)
 - **AI / ML**: PyTorch, MuQ (Music Quantization), Faiss (Vector Search)
-- **Infra**: Docker, Docker Compose, ngrok (Tunneling)
+- **Infra**: Docker, Docker Compose, Cloudflare Tunnel
 
 ---
 
-## 🔬 연구 및 모델 개발 (Research & Model Development)
+## 🏗️ 데이터셋 구축 가이드 (Data Construction Guide)
 
-MUSEED의 핵심 AI 엔진을 개발하기 위한 연구 코드는 `research/` 디렉토리에 정리되어 있습니다. 재현 가능한(Reproducible) 파이프라인을 위해 다음 4단계의 핵심 스크립트가 제공됩니다.
+이 프로젝트의 핵심인 `data/` 폴더를 처음부터 구축(Reproduce)하는 방법입니다. (이미 구축된 데이터를 사용하는 경우 이 단계를 건너뛰세요.)
 
-### 1. 데이터 준비 (Data Preparation)
-*   **`prepare_jamendo_dataset.py`**: Jamendo 데이터셋의 다운로드부터 메타데이터 생성, 장르 매핑까지 한 번에 수행합니다.
-*   **`split_dataset.py`**: 다축 분석 결과를 바탕으로 데이터셋을 훈련/테스트 셋으로 층화 추출(Stratified Split)합니다.
-
-### 2. 임베딩 추출 (Embedding Extraction)
-*   **`extract_embeddings.py`**: 통합 임베딩 추출 스크립트입니다.
-    *   **주요 기능:** Sliding Window (10초, Overlap 없음), 배치 처리(Batch Processing), 다양한 모델(MuQ, MuLan) 지원.
-    *   **사용법:** `python extract_embeddings.py --model_path <ckpt> --input_path <jsonl> ...`
-
-### 3. 모델 학습 (Model Training)
-*   **`train_contrastive.py`**: SimCLR 기반의 대조 학습(Contrastive Learning)을 수행합니다.
-*   **`train_triplet_loss.py`**: Hard Negative Mining을 포함한 Triplet Loss 학습을 수행합니다.
-
-### Quick Start (Docker)
-
-### Prerequisites
-- Docker & Docker Compose
-- NVIDIA Container Toolkit (for GPU support)
-- FMA Dataset & Jamendo Dataset (Raw Audio)
-
-### 1. Prepare Environment
-Create a `.env` file in `backend/` consistent with `.env.example`.
-Ensure your data paths are set.
-
-### 2. Prepare Local Library
-We vendor the `MuQ` library to handle Docker context limits. Run:
+### 1단계: 메타데이터 생성 (Metadata Generation)
+다음 스크립트를 순서대로 실행하여 `.jsonl` 메타데이터 파일을 생성합니다.
 ```bash
-./prepare_docker_build.sh
-```
+cd MUSEED/research
 
-### 3. Build and Run
+# 1. Jamendo 데이터셋 다운로드 및 메타데이터 생성
+python prepare_jamendo_dataset.py
+
+# 2. FMA 데이터셋 전처리
+# (FMA 메타데이터가 data/fma_metadata 폴더에 있다고 가정)
+python preprocess_fma_genres.py 
+
+# 3. 데이터셋 분할 (Train/Test Split)
+python split_dataset.py
+```
+**결과물:** `data/` 폴더에 `train_metadata.jsonl`, `test_metadata.jsonl` 등이 생성됩니다.
+
+### 2단계: 임베딩 추출 (Embedding Extraction)
+오디오 파일에서 MuQ 임베딩을 추출합니다. (시간이 오래 걸립니다 - GPU 권장)
 ```bash
-# Set paths to your local 2TB Storage
-export FMA_DATA_PATH="/path/to/fma"
-export JAMENDO_DATA_PATH="/path/to/jamendo"
-
-docker-compose up --build -d
+# 통합 임베딩 추출 실행
+python extract_embeddings_mean_pooling.py \
+  --input_path ../data/train_metadata.jsonl \
+  --output_dir ../data/embeddings_contrastive_v2_mean
 ```
-- Frontend: `http://localhost:3000`
-- Backend API: `http://localhost:8000/docs`
-- Celery Worker: Running in background
+**결과물:** `data/embeddings_contrastive_v2_mean/` 폴더에 `.npy` 파일들이 생성됩니다.
 
-### 4. GPU Verification
-Check if the backend container sees the GPU:
+### 3단계: FAISS 인덱스 빌드 (Build Search Index)
+생성된 임베딩을 검색 가능한 인덱스 파일로 변환합니다.
 ```bash
-docker-compose exec backend nvidia-smi
+python build_faiss_index.py
 ```
+**결과물:** `models/faiss_index.bin`, `models/faiss_track_ids.json` 파일이 생성됩니다.
+이제 백엔드 서버가 이 파일을 로드하여 유사 곡 검색을 수행할 수 있습니다.
 
 ---
 
-## 서비스 소개 (Introduction)
-*   **`evaluate_model.py`**: KNN 정확도, Linear Probe F1-Score, Silhouette Score 등 정량적 지표를 측정하고 t-SNE 시각화 결과를 생성합니다.
 
----
 
 ## 🚀 시작하기 (Getting Started)
 
-로컬 컴퓨터에서 프로젝트를 설정하고 실행하기 위한 안내입니다.
+로컬 컴퓨터에서 프로젝트를 설정하고 실행하기 위한 안내입니다. 교수님 및 평가자를 위한 **[소스코드 제출용 실행 가이드]**입니다.
 
-### 사전 준비물 (Prerequisites)
+### 1. 사전 준비 및 폴더 구조 (Prerequisites & Directory Structure)
 
-- [Node.js](https://nodejs.org/) (v18+)
-- [pnpm](https://pnpm.io/installation)
-- [Conda](https://docs.conda.io/projects/conda/en/latest/user-guide/install/index.html) (Miniconda or Anaconda)
-- [PostgreSQL](https://www.postgresql.org/download/)
-- **MuQ Library**: 상위 폴더에 `MuQ` 저장소를 Clone 해야 합니다. (Required as sibling directory `../MuQ`)
+이 프로젝트는 **MUSEED**(본 프로젝트)와 **MuQ**(외부 라이브러리)가 **형제 폴더(Sibling Directory)** 로 위치해야 실행됩니다.
 
-### 1. 백엔드 설정 (Backend Setup)
+1.  **작업 폴더 생성:**
+    ```bash
+    mkdir MusicAI_Workspace
+    cd MusicAI_Workspace
+    ```
 
-1.  **백엔드 디렉토리로 이동합니다 (Navigate to backend directory):**
+2.  **Github 저장소 클론 (Clone Repositories):**
+    ```bash
+    # 1. MUSEED (본 프로젝트)
+    git clone https://github.com/jayyoonakajaeha/MUSEED.git
+
+    # 2. MuQ (필수 외부 라이브러리)
+    git clone https://github.com/tencent-ailab/MuQ.git
+    ```
+
+3.  **데이터 준비 (Data Preparation - Optional):**
+    *   실제 AI 생성을 위해서는 `data/` 폴더에 학습된 임베딩과 오디오 파일이 필요합니다.
+    *   하지만 제출된 코드의 실행(UI/기능 확인)만을 위해서는 빈 폴더만 있어도 서버는 켜집니다.
+    *   (전체 기능을 위해서는 `../data` 위치에 FMA/Jamendo 데이터셋 필요)
+
+**최종 폴더 구조 확인:**
+```
+MusicAI_Workspace/
+├── MUSEED/        # 본 프로젝트 소스코드
+├── MuQ/           # 외부 라이브러리 (Clone 필수)
+└── data/          # (선택) 오디오 데이터 및 임베딩
+```
+
+---
+
+### 2. 백엔드 설정 및 실행 (Backend)
+
+1.  **디렉토리 이동:**
     ```bash
     cd MUSEED/backend
     ```
 
-2.  **Conda 가상환경을 생성하고 활성화합니다 (Create and activate Conda environment):**
+2.  **가상환경 생성 및 의존성 설치:**
     ```bash
     conda create --name museed_backend python=3.10 -y
     conda activate museed_backend
-    ```
-
-3.  **Python 의존성을 설치합니다 (Install dependencies):**
-    ```bash
     pip install -r requirements.txt
     ```
 
-4.  **PostgreSQL을 설정합니다 (Setup PostgreSQL):**
-    - PostgreSQL 서버가 실행 중인지 확인합니다. (Ensure PostgreSQL server is running.)
-    - `psql`에 접속하여 프로젝트 전용 데이터베이스와 사용자를 생성합니다. (Create database and user.)
-      ```sql
-      -- 'museed_db' 데이터베이스 생성
-      CREATE DATABASE museed_db;
-      
-      -- 'postgres' 사용자에게 'museed_db'에 대한 모든 권한 부여
-      GRANT ALL PRIVILEGES ON DATABASE museed_db TO postgres;
-      
-      -- 'postgres' 사용자의 비밀번호 설정 (아직 설정하지 않은 경우)
-      \password postgres 
-      ```
-
-5.  **환경 변수 파일을 생성합니다 (Create .env file):**
-    - `backend` 디렉토리 안에 `.env` 파일을 생성합니다.
-    - 아래 내용을 파일에 추가합니다. (Add the following content.)
-      ```
-      DATABASE_URL="postgresql://postgres:your_password@localhost:5432/museed_db"
-      ```
-    - `your_password` 부분을 실제 설정한 비밀번호로 교체합니다.
-
-6.  **백엔드 서버를 실행합니다 (Run backend server):**
+3.  **데이터베이스 설정 (Database Setup):**
+    *   PostgreSQL이 설치되어 있어야 합니다.
+    *   `psql` 또는 pgAdmin을 사용하여 DB를 생성합니다:
+    ```sql
+    CREATE DATABASE museed_db;
+    GRANT ALL PRIVILEGES ON DATABASE museed_db TO postgres;
+    -- (비밀번호: 'your_password'로 가정, .env 파일에서 수정 가능)
+    ```
+    *   `backend/.env` 파일을 생성하고 아래 내용을 추가하세요:
     ```bash
+    DATABASE_URL="postgresql://postgres:your_password@localhost:5432/museed_db"
+    ```
+
+4.  **실행 (Run Server):**
+    ```bash
+    # MuQ 경로 자동 인식 포함된 스크립트 실행
     ./run_backend.sh
-    # or
-    uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     ```
+    *   서버 주소: `http://localhost:8000`
 
-### 2. 프론트엔드 설정 (Frontend Setup)
+---
 
-1.  **프론트엔드 디렉토리로 이동합니다 (Navigate to frontend directory):**
+### 3. AI 워커 실행 (AI Worker)
+
+AI 플레이리스트 생성 기능을 사용하려면 워커를 별도 터미널에서 실행해야 합니다.
+
+1.  **새 터미널 열기** 후 `backend` 폴더로 이동.
+2.  **실행:**
     ```bash
-    cd MUSEED/frontend
+    conda activate museed_backend
+    ./run_worker.sh
+    ```
+    *   "Loading resources..." 메시지와 함께 MuQ 모델이 로드되면 준비 완료입니다.
+
+---
+
+### 4. 프론트엔드 설정 및 실행 (Frontend)
+
+1.  **디렉토리 이동:**
+    ```bash
+    cd ../frontend
     ```
 
-2.  **Node.js 의존성을 설치합니다 (Install dependencies):**
+2.  **의존성 설치 및 실행:**
     ```bash
     pnpm install
+    pnpm dev
     ```
+    *   웹사이트 접속: `http://localhost:3000` (또는 3001)
 
-3.  **운영 모드로 빌드 및 실행합니다 (Build and run):**
-    ```bash
-    pnpm run build
+---
+
+## 🔬 연구 및 모델 개발 (Research & Model Config)
+*   **`evaluate_model.py`**: ... (기존 내용)
     pnpm start
     ```
     프론트엔드 서버가 `http://localhost:3000`에서 실행됩니다.
@@ -290,5 +306,20 @@ docker-compose up -d --build
  
  > **Note:** `research/` 폴더의 스크립트들은 자동으로 `backend/.env` 파일을 참조하도록 설정되어 있습니다.
 
+
 ---
+
+## 🔬 연구 및 모델 개발 (Research & Model Development)
+
+MUSEED의 핵심 AI 엔진 개발 및 실험 코드는 `research/` 디렉토리에 있습니다.
+
+### 1. 모델 학습 (Model Training)
+*   **`train_contrastive.py`**: SimCLR 기반의 대조 학습(Contrastive Learning)을 수행합니다.
+*   **`train_triplet_loss.py`**: Hard Negative Mining을 포함한 Triplet Loss 학습을 수행합니다.
+
+### 2. 모델 평가 (Model Evaluation)
+*   **`evaluate_model.py`**: KNN 정확도, Linear Probe F1-Score, Silhouette Score 등 정량적 지표를 측정하고 t-SNE 시각화 결과를 생성합니다.
+
+---
+
 &copy; 2025 MUSEED. All rights reserved. Created by Jaeha Yoon.

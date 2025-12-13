@@ -6,13 +6,17 @@ from tqdm import tqdm
 import argparse
 
 # --- Configuration ---
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) # MUSEED/research -> MUSEED
+
+# Default relative paths
+DATA_ROOT = os.getenv("MUSEED_DATA_ROOT", os.path.join(BASE_DIR, "data"))
+MODELS_ROOT = os.getenv("MUSEED_MODELS_ROOT", os.path.join(BASE_DIR, "models"))
+
 # Unified embeddings directory
-EMBEDDING_DIR = '/home/jay/MusicAI/MUSEED/data/embeddings_contrastive_v2_mean/' 
-# No longer using JSONL for order; we will scan the directory.
-# JSONL_PATH = ... 
+EMBEDDING_DIR = os.path.join(DATA_ROOT, 'embeddings_contrastive_v2_mean')
 # Output paths for the generated index and its metadata
-FAISS_INDEX_PATH = '/home/jay/MusicAI/MUSEED/models/faiss_index.bin' 
-TRACK_IDS_PATH = '/home/jay/MusicAI/MUSEED/models/faiss_track_ids.json'
+FAISS_INDEX_PATH = os.path.join(MODELS_ROOT, 'faiss_index.bin')
+TRACK_IDS_PATH = os.path.join(MODELS_ROOT, 'faiss_track_ids.json')
 
 def build_index():
     """
