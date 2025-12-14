@@ -16,6 +16,8 @@
 
 # General
 .DS_Store
+*.rdb
+dump.rdb
 *.pyc
 *.pyo
 *.pyd
