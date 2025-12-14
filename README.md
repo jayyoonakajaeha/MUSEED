@@ -4,6 +4,11 @@ MUSEED는 사용자가 제공하는 '시드(Seed) 음악' 한 곡의 음악적, 
 
 MUSEED is a web platform that automatically generates personalized playlists by deeply analyzing the musical and emotional characteristics of a single 'Seed Music' provided by the user. It utilizes AI to discover songs that satisfy even the user's hidden tastes.
 
+> [!IMPORTANT]
+> **🌐 라이브 데모 (Live Demo):** [https://pool-losses-foo-electoral.trycloudflare.com](https://pool-losses-foo-electoral.trycloudflare.com)
+> *   본 서비스는 현재 **Cloudflare Tunnel**을 통해 호스팅되고 있습니다. (Hosted via Cloudflare Tunnel)
+> *   임시 주소이므로 변경될 수 있습니다. 접속이 원활하지 않을 경우 **개발자(Contact Creator)**에게 문의 바랍니다.
+
 ---
 
 ## 👤 제작자 (Creator)
@@ -56,7 +61,14 @@ MUSEED is a web platform that automatically generates personalized playlists by 
 
 로컬 컴퓨터에서 프로젝트를 설정하고 실행하기 위한 안내입니다.
 
-**본 서비스는 Ubuntu-20.04 환경에서 테스트 됐습니다.**
+***본 서비스는 Ubuntu-20.04 환경에서 테스트 됐습니다.**
+
+> [!IMPORTANT]
+> **데이터 및 모델 다운로드 (Download Data & Models)**
+> 프로젝트 실행에 필요한 대용량 파일(학습된 모델 가중치, 사전 계산된 임베딩)은 Git 저장소에 포함되어 있지 않습니다.
+> **[Google Drive Link](https://drive.google.com/drive/folders/19mu28UKnuDsZ6-k6ebbQBz29_g6s9Xtw?usp=sharing)**에서 다운로드하여 아래 폴더 구조에 맞춰 위치시켜 주세요.
+> *   `models/*.pth`, `models/*.bin` -> `MUSEED/models/`
+> *   `embeddings_*.zip` (압축 해제), `*.jsonl` -> `MUSEED/data/`
 
 ### 1. 사전 준비 및 폴더 구조 (Prerequisites & Directory Structure)
 
@@ -209,14 +221,32 @@ AI 플레이리스트 생성 기능을 사용하려면 워커를 별도 터미�
     cd ../frontend
     ```
 
-2.  **의존성 설치 및 실행:**
+2.  **의존성 설치 (Install Dependencies):**
     ```bash
+    npm install
+    # 또는 (OR)
     pnpm install
-    pnpm dev
     ```
-    *   웹사이트 접속: `http://localhost:3000` (또는 3001)
 
----
+3.  **실행 모드 선택 (Run Options):**
+
+    *   **개발 모드 (Development Mode):**
+        ```bash
+        npm run dev
+        ```
+        *   핫 리로딩 지원. 개발 중일 때 사용합니다.
+
+    *   **운영 모드 (Production Mode - 권장):**
+        실제 사용자 환경과 동일하게 최적화된 빌드를 실행합니다.
+        ```bash
+        # 1. 빌드 (Build) - 최초 1회 또는 코드 변경 시 수행
+        npm run build
+
+        # 2. 실행 (Run) - 제공된 스크립트 사용 권장
+        ./run_frontend.sh
+        # 또는: npm start
+        ```
+        *   웹사이트 접속: `http://localhost:3000`
 
 ## 🔬 연구 및 모델 개발 (Research & Model Config)
 

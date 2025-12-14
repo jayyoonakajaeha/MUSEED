@@ -36,6 +36,10 @@ __pycache__/
 cloudflared.yml
 *.pem
 *.json
+!package.json
+!frontend/package.json
+!frontend/tsconfig.json
+!frontend/components.json
 
 # Data & Models (Ignore everything but allow specific metadata)
 /data/*
@@ -56,5 +60,7 @@ env/
 MuQ/
 
 # Ignore Documentation and Runs
-/docs/
+/docs/*
+!/docs/project_final_report.md
+!/docs/images/
 /runs/
