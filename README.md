@@ -7,7 +7,7 @@ MUSEED is a web platform that automatically generates personalized playlists by 
 > [!IMPORTANT]
 > **🌐 라이브 데모 (Live Demo):** [https://pool-losses-foo-electoral.trycloudflare.com](https://pool-losses-foo-electoral.trycloudflare.com)
 > *   본 서비스는 현재 **Cloudflare Tunnel**을 통해 호스팅되고 있습니다. (Hosted via Cloudflare Tunnel)
-> *   임시 주소이므로 변경될 수 있습니다. 접속이 원활하지 않을 경우 **개발자(Contact Creator)**에게 문의 바랍니다.
+> *   임시 주소이므로 변경될 수 있습니다. 접속이 원활하지 않을 경우 개발자(Contact Creator)에게 문의 바랍니다.
 
 ---
 
