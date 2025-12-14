@@ -14,7 +14,7 @@ The core of our recommendation engine is based on the MuQ model.
 1. **Base Model:** `MuQ-large-msd-iter` (Pre-trained)
 2. **Fine-tuned Models:**
     - `muq_contrastive_simclr_v2.pth`: SimCLR-based Contrastive Learning model (Used for Embeddings).
-    - `muq_finetuned_triplet_float32_v1(real).pth`: Triplet Loss fine-tuned model.
+    - `muq_finetuned_triplet_float32_v1.pth`: Triplet Loss fine-tuned model.
 
 ### FAISS Index
 - `faiss_index.bin`: The vector search index built from `embeddings/`.
@@ -35,7 +35,7 @@ MUSEED 추천 엔진의 핵심은 MuQ 모델을 기반으로 합니다.
 1. **기본 모델 (Base Model):** `MuQ-large-msd-iter`
 2. **파인튜닝 모델 (Fine-tuned Models):**
     - `muq_contrastive_simclr_v2.pth`: SimCLR 기반 대조 학습 모델 (임베딩 추출용).
-    - `muq_finetuned_triplet_float32_v1(real).pth`: Triplet Loss 파인튜닝 모델.
+    - `muq_finetuned_triplet_float32_v1.pth`: Triplet Loss 파인튜닝 모델.
 
 ### FAISS 인덱스
 - `faiss_index.bin`: `embeddings/` 데이터를 기반으로 구축된 벡터 검색 인덱스입니다.

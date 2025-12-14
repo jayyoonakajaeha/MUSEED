@@ -17,56 +17,187 @@ MUSEED는 사용자가 선택한 단 하나의 '시드(Seed) 음악'을 입력�
 
 ---
 
-## 2. 프로젝트 구성도 (System Architecture)
+## 2. 시스템 아키텍처 및 유저 플로우 (System Architecture & User Flow)
 
-### 2.1. 전체 시스템 다이어그램
-전체 시스템은 **Frontend (Web)**, **Backend (API)**, **AI Engine**, **Database**의 4계층으로 구성되며, 대용량 오디오 처리를 위한 비동기 파이프라인을 구축하였습니다.
+### 2.1. 전체 시스템 아키텍처 (System Architecture)
+
+MUSEED는 대용량 오디오 데이터의 실시간 처리와 확장성을 위해 **Event-driven Async Architecture**를 채택했습니다.
 
 ```mermaid
 graph TD
-    User[사용자] --> |Web Interface| Frontend[Frontend (Next.js)]
-    Frontend --> |REST API| Backend[Backend (FastAPI)]
+    User[User (Music Listener & Creator)] --> |Web Interface| Frontend[Frontend Web App (Next.js 14)]
     
-    subgraph "Async Processing"
-        Backend -.-> |Task Enqueue| Redis[Redis Queue]
-        Redis -.-> |Task Dequeue| Worker[Celery Worker (GPU)]
-    end
-
-    subgraph "AI Engine (In Worker)"
-        Worker --> |1. 시드 곡 오디오/ID| Preprocessing[전처리: Resampling & Slicing]
-        Preprocessing --> |2. 오디오 파형| MuQ[MuQ Encoder (Fine-tuned)]
-        MuQ --> |3. 임베딩 벡터 추출| FAISS[FAISS Vector DB]
+    subgraph "Service Layer"
+        Frontend --> |REST API (JSON)| Backend[Backend API (FastAPI)]
+        Frontend --> |Stream Audio| Backend
     end
     
-    Backend --> |Long-polling/Socket| Frontend
-    
-    FAISS --> |4. 유사 벡터 Top-N 검색| Worker
-    Worker --> |5. 결과 DB 저장| DB[(PostgreSQL)]
-    
-    
-    subgraph "Data Persistence"
-        DB
-        Storage[File Storage]
+    subgraph "Async AI Pipeline"
+        Backend --> |Enqueue Task| Redis[Redis Message Broker]
+        Redis --> |Consume Task| Worker[AI Worker (Celery / PyTorch)]
     end
     
-    Backend --> |API Read| DB
-    Preprocessing -.-> |Raw Audio Load| Storage
+    subgraph "Data Layer"
+        DB[(PostgreSQL Main DB)]
+        FAISS[(FAISS Vector Index)]
+        FileStore[File Storage (Local/Volume)]
+    end
+    
+    %% Relationships
+    Worker --> |Vector Search (Query)| FAISS
+    Worker --> |Update Playlist Result| DB
+    Worker --> |Load Audio/Embeddings| FileStore
+    
+    Backend --> |Read/Write Metadata| DB
+    Backend --> |Read Media Files| FileStore
 ```
 
-### 2.2. 구성 요소별 역할
-*   **Frontend (Next.js):** 사용자 인터페이스를 제공하며, 플레이리스트 탐색, 생성, 관리 및 소셜 활동을 위한 웹 페이지를 렌더링합니다.
-*   **Backend (FastAPI):** 사용자 인증, 데이터베이스 상호작용을 처리하는 RESTful API 서버입니다. 무거운 AI 작업은 직접 처리하지 않고 Redis로 위임합니다.
-*   **Async Queue (Redis & Celery):**
-    *   **Redis:** 백엔드와 워커 사이의 작업 대기열(Message Broker) 역할을 하며, 비동기 작업 상태를 관리합니다.
-    *   **Celery Worker:** 실제 GPU 리소스를 사용하여 AI 추론(Inference) 작업을 백그라운드에서 수행합니다. 이를 통해 사용자 요청 처리가 지연되지 않도록(Non-blocking) 보장합니다.
-*   **AI Engine (Inside Worker):**
-    *   **Offline:** FMA 및 Jamendo 데이터셋 전체에 대한 오디오 임베딩을 추출하고 FAISS 인덱스를 구축하는 역할을 수행합니다.
-    *   **Online:** 사용자 업로드 오디오의 실시간 임베딩 추출 및 FAISS를 이용한 유사도 검색을 담당합니다.
-*   **Data Persistence (DB & Storage):**
-    *   **DB (PostgreSQL):** 사용자 계정, 플레이리스트 메타데이터, 트랙 정보 등 구조화된 데이터를 영구적으로 저장합니다.
-    *   **Storage (File Storage):** FMA/Jamendo 원본 오디오 파일 및 임베딩 파일을 저장합니다. Docker 환경에서는 Bind Mount를 통해 호스트 데이터를 참조합니다.
+### 2.2. 핵심 구성 요소 (Key Components)
 
-### 2.3. 핵심 데이터 흐름 (Data Flow)
+1.  **Frontend (Next.js 14 + Shadcn/ui):**
+    *   **역할:** 사용자 인터페이스 제공, 오디오 재생(Global Player), 대시보드 시각화.
+    *   **특징:** Server Side Rendering (SSR)을 통한 초기 로딩 최적화 및 SEO 지원.
+
+2.  **Backend API (FastAPI):**
+    *   **역할:** RESTful API 서버. 사용자 인증(JWT), 비즈니스 로직 처리, 오디오 스트리밍.
+    *   **특징:** 무거운 AI 연산 작업을 직접 수행하지 않고 Redis 큐로 위임하여 높은 동시성(Concurrency) 유지.
+
+3.  **Message Broker (Redis):**
+    *   **역할:** 백엔드와 AI 워커 사이의 작업 중개자.
+    *   **특징:** In-memory 기반의 고속 작업 큐(Task Queue)로, 트래픽 폭주 시에도 요청을 유실 없이 버퍼링.
+
+4.  **AI Worker (Celery + PyTorch):**
+    *   **역할:** 실제 GPU 자원을 사용하여 오디오 분석, 임베딩 추출, 유사도 검색(Vector Search) 수행.
+    *   **특징:** `ack_late` 설정을 통해 작업 실패 시 재시도 보장. 배경(Background)에서 독립적으로 실행되므로 사용자 웹 경험을 차단(Block)하지 않음.
+
+5.  **Vector Store (FAISS):**
+    *   **역할:** 9만여 곡의 고차원 임베딩 벡터를 메모리에 적재하여 0.1초 이내의 초고속 유사도 검색 지원.
+
+### 2.3. 유저 인터페이스 플로우 (User Interface Flow)
+
+사용자의 서비스 이용 흐름을 5가지 핵심 단계로 세분화하여 상세히 기술합니다.
+
+#### 2.3.1. 초기 진입 및 인증 (Initial Entry & Authentication)
+
+```mermaid
+graph TD
+    Landing[랜딩 페이지 (Landing)] --> Auth{인증 상태 확인}
+    Auth -- Guest --> Dashboard[메인 대시보드 (Guest View)]
+    Auth -- User --> Dashboard[메인 대시보드 (Logged In)]
+
+    Dashboard -- 로그인/가입 --> LoginPage[로그인 / 회원가입 페이지]
+    LoginPage --> Dashboard
+```
+*   **권한 분리:** 서비스에 진입하면 JWT 토큰 유무를 확인하여 **Guest**와 **User** 상태를 구분합니다.
+*   **Guest 접근:** 로그인 없이도 트렌딩 플레이리스트 재생 및 검색 기능을 제한적으로 이용할 수 있습니다.
+
+#### 2.3.2. 대시보드 및 콘텐츠 탐색 (Dashboard & Discovery)
+
+```mermaid
+graph TD
+    Dashboard[메인 대시보드] --> NavBar{"네비게이션 (Global)"}
+    NavBar -- Home --> Dashboard
+    NavBar -- Discover --> Discover["탐색 (Discover)<br/>검색 / 트렌딩 / 추천 유저"]
+
+    Dashboard --> MainContent["메인 컨텐츠 (Tabs)"]
+    MainContent --> GlobalStats["전체 사용자 활동 통계 (Hero Section)"]
+    MainContent --> FollowingFeed["팔로잉 활동 피드 (Feed)"]
+    MainContent --> TrendingList["트렌딩 플레이리스트 (Trending)"]
+
+    Discover --> SearchBar["검색 (제목/아티스트/임베딩)"]
+    Discover --> RecUsers["추천 유저 (User Embedding Based)"]
+    Discover --> PlaylistGrid["플레이리스트 그리드 (트렌딩/최신)"]
+
+    PlaylistGrid -- 클릭 --> PlaylistView["플레이리스트 상세"]
+    PlaylistGrid -- Quick Action --> GridActions{그리드 액션}
+    GridActions --> |재생| GlobalPlayer["글로벌 오디오 플레이어"]
+    GridActions --> |좋아요| Like
+    GridActions --> |공유| Share
+    GridActions --> |옵션/삭제| PlaylistOpts[옵션 메뉴]
+
+    RecUsers -- 클릭 --> UserProfilePage
+```
+*   **개인화 대시보드:** 팔로잉한 유저들의 활동(생성, 좋아요, 팔로우)을 피드(Feed) 형태로 실시간 제공합니다.
+*   **Global Player:** 앱 하단에 고정된 플레이어를 통해 끊김 없는 음악 감상이 가능하며, 플레이리스트 그리드에서 즉시 재생이 가능합니다.
+*   **탐색 고도화:** 청취 기록 기반의 **유사 유저 추천(Rec Users)** 기능을 제공합니다.
+
+#### 2.3.3. 플레이리스트 생성 (Playlist Creation)
+
+```mermaid
+graph TD
+    NavBar[네비게이션] -- Create --> CreatePage["플레이리스트 생성 (AI)"]
+    CreatePage --> SeedSelection{"시드(Seed) 선택"}
+    SeedSelection -- 트랙 검색 --> SearchTrack["FMA/Jamendo DB 검색"]
+    SeedSelection -- 파일 업로드 --> UploadFile["MP3/WAV 파일 업로드"]
+
+    SearchTrack --> GenerateButton["생성 시작 (Generate)"]
+    UploadFile --> GenerateButton
+
+    GenerateButton --> AsyncJob["비동기 작업 요청 (Redis Queue)"]
+    AsyncJob --> Polling["상태 폴링 (Processing...)"]
+    Polling --> |완료| Redirect["생성된 플레이리스트 상세 이동"]
+```
+*   **Event-driven Architecture:** 사용자가 '생성'을 요청하면 즉시 **Redis Queue**에 작업을 등록하고, 프론트엔드는 **Polling** 방식으로 상태를 확인합니다. 이는 AI 추론 시간(수 초 소요) 동안 UI 멈춤을 방지합니다.
+
+#### 2.3.4. 플레이리스트 상세 및 편집 (Playlist Detail & Edit)
+
+```mermaid
+graph TD
+    PlaylistView["플레이리스트 상세"] --> ViewType{소유자 여부}
+
+    ViewType -- Owner --> OwnerOptions{소유자 액션}
+    OwnerOptions --> |재생| GlobalPlayer["글로벌 오디오 플레이어"]
+    OwnerOptions --> |편집 버튼 클릭| EditMode["편집 모드 진입 (순서변경/삭제 가능)"]
+    OwnerOptions --> |공유| Share
+    OwnerOptions --> |삭제| DeletePlaylist
+
+    EditMode --> Actions{편집 액션}
+    Actions --> |순서 변경| Dnd["Drag & Drop"]
+    Actions --> |트랙 삭제| DeleteTrack["트랙 삭제"]
+    Actions --> |제목/공개 설정| UpdateMeta["메타데이터 수정"]
+    Actions --> |완료| PlaylistView
+
+    ViewType -- Guest/Other --> Interaction{상호작용}
+    Interaction --> |좋아요| LikeToggle["좋아요 / 좋아요 취소"]
+    Interaction --> |공유| Share
+    Interaction --> |재생| GlobalPlayer
+    Interaction --> |작성자 프로필| UserProfile
+```
+*   **소유자 권한:** 플레이리스트 생성자(Owner)에게만 **편집 모드(Edit Mode)** 진입 버튼이 활성화됩니다.
+*   **Drag & Drop:** 편집 모드에서는 직관적인 드래그 앤 드롭으로 트랙 순서를 변경할 수 있습니다.
+
+#### 2.3.5. 프로필 페이지 (Profile Page)
+
+```mermaid
+graph TD
+    NavBar[네비게이션] -- Profile --> SectionProfile{"프로필 분기"}
+    SectionProfile -- My Profile --> MyProfilePage[내 프로필 페이지]
+    SectionProfile -- User ID --> UserProfilePage[타 유저 프로필 페이지]
+
+    MyProfilePage --> UserStats["유저 통계 (Top Genre / Total Plays)"]
+    MyProfilePage --> Tabs{탭 메뉴}
+    Tabs --> |Created| MyPlaylists["제작한 플레이리스트 (Grid)"]
+    Tabs --> |Liked| LikedPlaylists["좋아요한 플레이리스트 (Grid)"]
+    
+    MyPlaylists -- 클릭 --> PlaylistView[플레이리스트 상세]
+    LikedPlaylists -- 클릭 --> PlaylistView
+
+    MyProfilePage --> EditProfile["프로필 수정 (비밀번호/이메일)"]
+    MyProfilePage --> Logout[로그아웃]
+    Logout --> Landing[랜딩 페이지]
+
+    UserProfilePage --> Interaction2{상호작용}
+    Interaction2 --> |Follow/Unfollow| FollowSystem["팔로우 시스템"]
+    UserProfilePage --> UserPlaylists["공개 플레이리스트 목록 (Grid)"]
+    UserPlaylists -- 클릭 --> PlaylistView
+```
+*   **유저 통계:** 활동 내역을 분석하여 가장 많이 들은 **상위 장르(Top Genre)**와 총 감상 횟수를 시각화합니다.
+*   **탭(Tabs) 구조:** 사용자가 제작한(Created) 목록과 좋아요한(Liked) 목록을 탭으로 분리하여 제공합니다.
+
+
+
+### 2.4. 핵심 데이터 흐름 (Core Data Flow)
+
 1.  **Input:** 사용자가 라이브러리에서 곡을 선택하거나 MP3 파일을 업로드합니다.
 2.  **Processing:** 오디오 파일을 16kHz로 변환 후 10초 윈도우로 슬라이싱하여 `MuQ` 모델에 입력합니다.
 3.  **Inference:** 모델이 1024차원의 고밀도 임베딩 벡터를 출력합니다.
@@ -107,6 +238,8 @@ graph TD
     | 14 | **Country** | 544 | 0.62% |
     | 15 | **Old-Time / Historic** | 344 | 0.39% |
     | 16 | **Easy Listening** | 171 | 0.19% |
+
+    ![FMA Genre Distribution](/home/jay/MusicAI/MUSEED/docs/images/fma_genre_dist.png)
     
     *참고: 위 분포는 학습셋(Train)과 평가셋(Test)을 합친 전체 데이터 기준이며, 층화 추출(Stratified Split)을 통해 학습/평가 셋에서도 동일한 비율이 유지됩니다.*
 
@@ -153,6 +286,8 @@ graph TD
     | 10 | **Country** | 1 | 0.50% |
     | - | **Unknown** | 9 | 4.52% |
 
+    ![Jamendo Genre Distribution](/home/jay/MusicAI/MUSEED/docs/images/jamendo_genre_dist.png)
+
     **[Service Handling of Unknown Tracks]**
     데이터셋 분석 단계에서는 메타데이터의 정확성을 위해 'Unknown'으로 분류했으나, **실제 웹 서비스(Backend)**에서는 모든 곡이 추천 알고리즘에 정상적으로 포함될 수 있도록 예외 처리를 적용했습니다.
     *   **서비스 정책:** 태그가 아예 없는 곡(Unknown)은 **'Experimental'**로, 태그는 있으나 매핑되지 않는 곡은 가장 대중적인 **'Pop'**으로 자동 매핑(Fallback)하여 DB에 저장합니다.
@@ -178,12 +313,27 @@ graph TD
 본 프로젝트는 최적의 오디오 임베딩 학습을 위해 **Triplet Loss** 방식에서 시작하여 **Contrastive Learning**으로 방법론을 고도화하였습니다.
 
 ### 5.1. 초기 접근: Triplet Learning (The Naive Approach)
-초기에는 FMA의 장르 레이블을 정답지로 활용하여 지도 학습 기반의 **Triplet Loss**를 적용하려 했습니다.
+초기에는 지도 학습 기반의 **Triplet Loss**를 적용하여 성능을 개선하고자 했습니다.
 
-*   **Triplet 구성:**
-    *   **Anchor ($A$):** 기준이 되는 곡 (예: Rock 장르의 A곡)
-    *   **Positive ($P$):** 같은 장르의 다른 곡 (예: Rock 장르의 B곡)
-    *   **Negative ($N$):** 다른 장르의 곡 (예: Jazz 장르의 C곡)
+#### 5.1.1. 데이터 태깅: MuQ-MuLan 기반 Pseudo-Labeling
+FMA 데이터셋의 원본 장르 태그는 노이즈가 심하고 단일 축(Genre) 정보만 제공합니다. 이를 보완하기 위해 멀티모달 Teacher 모델인 **MuQ-MuLan**을 사용하여 모든 트랙에 대해 **5가지 축(Axis)의 풍부한 태그(Rich Tags)**를 생성했습니다.
+*   **Target Axes:** `Genre`, `Mood`, `Energy`, `Valence`, `Source` (Instrument/Timbre).
+*   **Process:** FMA 90,000여 곡의 오디오 임베딩을 추출하고, MuLan의 텍스트 인코더와 대조하여 각 축별로 가장 확률이 높은 태그를 부여했습니다. (예: Genre=Rock, Mood=Aggressive, Source=Electric Guitar).
+
+#### 5.1.2. 학습 전략: Hierarchical Hard Negative Mining
+단순히 장르가 다른 곡을 Negative로 사용하는 것은 학습 효율이 떨어집니다(Easy Negative). 모델이 미세한 음향적 차이를 학습하도록 유도하기 위해, **5단계 계층적 난이도(Hierarchical Difficulty)**를 적용한 Hard Negative Mining 전략을 설계했습니다.
+
+*   **Anchor ($A$):** 기준 곡 (예: Rock, Sad, High Energy)
+*   **Positive ($P$):** Anchor와 모든 태그가 동일한 다른 곡.
+*   **Negative ($N$) Selection Logic:**
+    1.  **Level 1 (Easy):** **Genre**가 다른 곡. (기본 분류 능력 학습)
+    2.  **Level 2 (Medium):** Genre는 같지만 **Mood**가 다른 곡. (분위기 구분)
+    3.  **Level 3 (Hard):** Genre, Mood는 같지만 **Valence**가 다른 곡. (긍/부정 감성 구분)
+    4.  **Level 4 (Very Hard):** 모든 감성 태그가 같지만 **Energy**가 다른 곡. (강렬함 구분)
+    5.  **Level 5 (Ultra Hard):** 모든 태그가 같지만 **Source**(악기/음색)가 다른 곡. (가장 미세한 Timbre 차이 학습)
+    
+이렇게 설계된 5단계 Mining 전략 덕분에 Triplet 모델은 특히 **Source(음색) 분리 능력에서 탁월한 성능**(Table 5 참조)을 보였으나, 텍스트 태그 자체의 한계로 인해 전체적인 일반화 성능은 Contrastive Learning에 미치지 못했습니다.
+
 *   **Loss Function:**
     $$ L = \max(d(A, P) - d(A, N) + \text{margin}, 0) $$
     여기서 $d(x, y)$는 유클리드 거리 또는 코사인 거리입니다.
@@ -218,12 +368,12 @@ FMA 데이터셋은 Electronic(25%) 장르가 압도적으로 많고 Easy Listen
 *   **Oversampling:** 소수 장르에 대해서는 중복 샘플링을 허용하여 배치 내 출현 빈도를 높였습니다.
 *   **Result:** 학습 과정에서 모델이 다양한 장르의 곡을 균형 있게 접하게 되어, 소수 장르에 대한 임베딩 품질이 크게 향상되었습니다.
 
-### 5.4. 모델 최적화 및 경량화 (Optimization & Quantization)
+### 5.4. 모델 최적화 및 경량화 (Optimization & Reduced Precision)
 
 실제 서비스 환경에서의 응답 속도와 비용 효율성을 극대화하기 위해, 학습된 모델을 경량화하는 과정을 수행했습니다.
 
-*   **FP16 Half Precision Conversion:**
-    *   기존 32-bit Floating Point 모델을 16-bit Half Precision으로 변환하여 모델 크기를 **50% 절감**했습니다.
+*   **FP16 Reduced Precision Optimization:**
+    *   기존 32-bit Floating Point 모델을 **Reduced Precision 기법**을 통해 16-bit Half Precision으로 변환하여 모델 크기를 **50% 절감**했습니다.
     *   **Memory Usage:** GPU VRAM 사용량을 현저히 낮추어, 단일 GPU에서 더 많은 동시 요청(Concurrency) 처리가 가능해졌습니다.
     *   **Inference Speed:** Tensor Core 가속을 활용하여, 10초 오디오 세그먼트에 대한 추론 시간을 **약 0.1초** 수준으로 단축했습니다.
 
@@ -288,10 +438,52 @@ FMA 데이터셋은 Electronic(25%) 장르가 압도적으로 많고 Easy Listen
 
 *(참고: Linear Accuracy/Macro F1은 Logistic Regression 기준, k-NN Accuracy/Macro F1은 k-NN (k=5) 기준입니다.)*
 
+*(참고: Linear Accuracy/Macro F1은 Logistic Regression 기준, k-NN Accuracy/Macro F1은 k-NN (k=5) 기준입니다.)*
+
+**[Table 5: FMA 테스트셋 모델 및 축(Axis)별 실루엣 스코어 비교]**
+
+| Model | Genre | Source | Valence | Energy | Mood |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| **Base MuQ** | -0.0274 | 0.0042 | 0.0151 | -0.0136 | -0.1006 |
+| **MuQ-MuLan (Teacher)** | -0.0559 | 0.0639 | **0.0846** | **-0.0052** | -0.1126 |
+| **Triplet (V1)** | -0.1489 | **0.1790** | 0.0040 | -0.0231 | -0.1670 |
+| **Contrastive V1** | -0.0808 | 0.0192 | 0.0330 | -0.0188 | -0.0854 |
+| **Contrastive V2** | -0.0778 | 0.0266 | 0.0449 | -0.0167 | **-0.0732** |
+
+*(Note: 실루엣 스코어는 -1~1 사이 값을 가지며, 1에 가까울수록 군집화가 잘 되었음을 의미합니다.)*
 
 ### 7.2. 성능 분석 및 논의
 
 1.  **Teacher 모델(MuQ-MuLan)의 우위 및 그 한계:**
+    MuQ-MuLan은 Linear Accuracy (48.54%) 등 주요 지표에서 우수하며, Silhouette Score에서도 Valence, Energy 축에서 가장 높은 점수를 기록했습니다. 이는 멀티모달 학습이 임베딩 공간의 구조화에 유리함을 보여줍니다.
+
+2.  **Triplet 모델의 특징:**
+    Triplet 모델은 **Source(악기/음색) 축에서 압도적으로 높은 실루엣 스코어(0.1790)**를 기록했습니다. 이는 Hard Negative Mining 과정에서 음색적으로 구분되는 샘플들을 효과적으로 밀어내어(Distance Metric Learning), 악기 구성에 민감한 임베딩을 형성했음을 시사합니다. 하지만 다른 축(Mood 등)에서는 가장 낮은 점수를 보여 일반화 성능의 불균형이 관찰됩니다.
+
+3.  **Contrastive V2의 Mood 성능:**
+    흥미롭게도 오디오 신호만을 학습한 **Contrastive V2 모델이 Mood 축에서는 가장 높은 점수(-0.0732)를 기록**했습니다(Teacher 포함). 이는 오디오 자체의 질감(Timbre)에 집중하는 Contrastive Learning이, 텍스트 태그로는 모호할 수 있는 '분위기' 정보를 더 섬세하게 포착했음을 의미합니다.
+
+---
+
+### 7.3. Jamendo 데이터셋 추가 검증 (Jamendo Verification)
+
+학습에 사용되지 않은 Jamendo 데이터셋에 대해서도 동일한 실루엣 스코어 분석을 수행했습니다.
+
+**[Table 6: Jamendo 데이터셋 모델 및 축(Axis)별 실루엣 스코어 비교]**
+
+| Model | Genre | Source | Valence | Energy | Mood |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| **Base MuQ** | **-0.1894** | 0.0196 | 0.0249 | -0.0137 | -0.0639 |
+| **MuQ-MuLan (Teacher)** | -0.3399 | 0.1957 | **0.0746** | **0.0558** | **-0.0257** |
+| **Triplet (V1)** | -0.3491 | **0.2378** | 0.0090 | 0.0209 | -0.1568 |
+| **Contrastive V1** | -0.2709 | 0.1307 | 0.0410 | 0.0426 | -0.1129 |
+| **Contrastive V2** | -0.2725 | 0.1522 | 0.0315 | 0.0427 | -0.1286 |
+
+**[Jamendo 분석]**
+*   **Triplet & Teacher의 Source 강세:** FMA와 마찬가지로 Triplet과 Teacher 모델이 Source(음색) 축에서 높은 응집도를 보였습니다.
+*   **Contrastive 모델의 균형:** Contrastive 모델들은 모든 축에서 극단적인 값 없이 중위권의 안정적인 성능을 유지하며, 이는 Cross-Dataset 환경에서도 과적합 없이 일반화된 특징을 추출함을 보여줍니다.
+
+
 
     MuQ-MuLan은 Linear Accuracy (48.54%), k-NN Accuracy (43.41%), k-NN Macro F1 (0.2950)에서 가장 높은 수치를 기록하며 전반적으로 우수한 성능을 보였습니다. 이는 텍스트-오디오 멀티모달 학습을 통해 장르 분류에 매우 강력한 의미론적 컨텍스트를 학습했기 때문입니다. 하지만 이는 **약 700M의 파라미터 수를 가진 거대 모델**이며, 실제 서비스 환경에서는 추론 비용과 메모리 부담이 큽니다.
 
@@ -335,6 +527,35 @@ FMA 데이터셋은 Electronic(25%) 장르가 압도적으로 많고 Easy Listen
 
 ---
 
+### 7.4. 사용자 만족도 조사 (User Satisfaction Survey)
+
+#### 7.4.1. 조사 개요 (Overview)
+*   **대상:** 20~50대 남녀 10명 (남성 5명, 여성 5명 / 평소 음악 스트리밍 서비스 이용자).
+*   **방법:** 블라인드 테스트 (Blind Test).
+    *   동일한 시드 곡(Seed Track)으로 생성된 3가지 플레이리스트(Model A, B, C)를 청취.
+    *   모델 정보 없이 만족도, 다양성, 유사도를 5점 척도로 평가.
+*   **시드 곡:** 다양한 장르(Pop, Rock, Electronic, Jazz, Classical)의 대표곡 5곡 선정.
+
+#### 7.4.2. 설문 결과 (Results)
+
+**[Table 7: 사용자 만족도 설문 결과 (5점 만점, N=10)]**
+
+| 평가 항목 (Metrics) | **MuQ (Baseline)** | Triplet (V1) | **Contrastive V2 (Ours)** |
+| :--- | :---: | :---: | :---: |
+| **유사도 (Relevance)** | 3.6 | 3.9 | **4.2** |
+| **다양성 (Serendipity)** | 4.1 | 4.0 | **4.1** |
+| **전반적 만족도 (Satisfaction)** | 3.5 | 4.0 | **4.2** |
+
+**결과 분석:**
+*   **MuQ (Baseline):** 데이터셋 특화가 되지 않아 유사도(3.6)는 낮았으나, 시드 곡과 무관한 엉뚱한 곡이 추천되면서 **다양성(4.1)은 역설적으로 높게 평가**되었습니다. 하지만 이는 '의미 없는 다양성(Randomness)'에 가까워 전반적 만족도(3.5)는 가장 낮았습니다.
+*   **Triplet (V1):** 유사도(3.9)와 다양성(4.0) 모두 준수했으나, 음색(Source)에 집중하는 경향으로 인해 유사도는 다소 아쉬웠습니다.
+*   **Contrastive V2:** **높은 유사도(4.2)**를 유지하면서도 **Baseline 수준의 높은 다양성(4.1)**을 동시에 달성했습니다. 이는 사용자가 원하는 분위기 내에서 새로운 곡을 발견하는 **'진정한 Serendipity(유의미한 발견)'**를 제공했음을 의미하며, 결과적으로 **가장 높은 만족도(4.2)**로 이어졌습니다.
+
+#### 7.4.3. 한계점 (Limitations)
+본 설문 조사는 연구자의 지인 및 동료를 대상으로 진행되었기 때문에, 최대한 객관적으로 평가를 해달라고 부탁했음에도 불구하고 평점이 전반적으로 후하게 매겨지는 **긍정 편향(Positive Bias)**이 존재할 수 있음을 밝힙니다. 향후 더 광범위한 불특정 다수를 대상으로 한 검증이 필요합니다.
+
+---
+
 ## 8. 결론 및 논의 (Conclusion & Discussion)
 
 본 프로젝트는 AI 기반 플레이리스트 생성 플랫폼 MUSEED의 핵심 기술인 음악 임베딩 모델의 성능을 향상시키기 위한 다양한 시도와 분석을 수행했습니다. 최종적으로 **오디오 전용 Fine-tuned MuQ (Contrastive V2)** 모델은 전반적인 Accuracy 측면에서는 Teacher 모델인 MuQ-MuLan에 미치지 못했으나, 다음과 같은 **서비스 관점의 결정적인 우위**를 확보했습니다.
@@ -347,6 +568,13 @@ FMA 데이터셋은 Electronic(25%) 장르가 압도적으로 많고 Easy Listen
 3.  **강력한 강건성:** 오디오 신호만을 학습하므로 메타데이터가 없는 신규 음원(Cold-Start) 및 사용자 업로드 오디오에 대해 **가장 강건하고 일관된 추천 성능**을 보장합니다.
 
 따라서 본 Fine-tuned MuQ 모델은 **'최고의 절대 성능'보다는 '최적의 서비스 적합성'**에 방점을 둔 솔루션으로, 실제 MUSEED 플랫폼에 통합되어 사용자에게 효율적이고 균형 잡힌 AI 기반 음악 추천 경험을 제공할 것입니다.
+
+### 8.1. 향후 연구 과제 (Future Work)
+
+1.  **INT8 Static Quantization (True Quantization):**
+    *   현재의 FP16 Reduced Precision을 넘어, 모델의 가중치(Weight)와 활성화 값(Activation)을 8-bit 정수(INT8)로 변환하는 정적 양자화를 도입할 계획입니다. 이를 통해 엣지 디바이스(Edge Device)나 CPU 환경에서도 실시간 추론이 가능하도록 경량화를 극대화할 수 있습니다.
+2.  **Cold-Start Problem 해결의 고도화:**
+    *   현재의 오디오 기반 추천은 메타데이터가 없는 신규 음원에 효과적이나, 유저 행동 데이터(로그)가 쌓인 후에는 이를 결합한 **Hybrid Recommender System**으로 발전시켜 개인화 성능을 더욱 강화해야 합니다.
 
 ---
 

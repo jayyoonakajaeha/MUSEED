@@ -21,17 +21,9 @@
 *.pyd
 __pycache__/
 .env
+*.log
 
-# Large Data & Models
-# Ignore everything in data and models folders...
-/data/*
-/models/*
-# ...but keep the READMEs
-!/data/README.md
-!/models/README.md
-
-# Research artifacts
-# Ignore large binary files
+# Large Binary Files
 *.npy
 *.pth
 *.pt
@@ -40,7 +32,21 @@ __pycache__/
 *.mp3
 *.flac
 
-# Keep results and plots
+# Cloudflare Tunnel & Mixed
+cloudflared.yml
+*.pem
+*.json
+
+# Data & Models (Ignore everything but allow specific metadata)
+/data/*
+/models/*
+!/data/README.md
+!/models/README.md
+# User Request: Allow jsonl in data and json in models
+!/data/*.jsonl
+!/models/*.json
+
+# Research Results (Keep results and plots)
 !/research/results/
 !/research/plots/
 
@@ -49,15 +55,6 @@ venv/
 env/
 MuQ/
 
-# Cloudflare Tunnel
-cloudflared.yml
-*.pem
-*.json
-
-# Personal Docs
-/docs/personal_*
-/docs/*.txt
-!/docs/architecture.txt
-
-# Logs
-*.log
+# Ignore Documentation and Runs
+/docs/
+/runs/

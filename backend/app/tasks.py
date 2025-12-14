@@ -24,11 +24,10 @@ if os.path.exists('/app/models'):
     FINETUNED_MODEL_PATH = '/app/models/muq_contrastive_simclr_v2.pth'
 else:
     # Local/Host Environment
-    # Use relative paths or env vars to avoid hardcoding specific user home dir
     BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))) # MUSEED/backend/app -> MUSEED/backend -> MUSEED
     
     # Default relative paths:
-    # DATA_ROOT: Inside MUSEED (MUSEED/data) - Confirmed by ls
+    # DATA_ROOT: Inside MUSEED (MUSEED/data)
     # MODELS_ROOT: Inside MUSEED (MUSEED/models)
     DATA_ROOT = os.getenv("MUSEED_DATA_ROOT", os.path.join(BASE_DIR, "data"))
     MODELS_ROOT = os.getenv("MUSEED_MODELS_ROOT", os.path.join(BASE_DIR, "models"))

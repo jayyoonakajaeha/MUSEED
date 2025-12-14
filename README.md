@@ -54,7 +54,9 @@ MUSEED is a web platform that automatically generates personalized playlists by 
 
 ## 🚀 시작하기 (Getting Started)
 
-로컬 컴퓨터에서 프로젝트를 설정하고 실행하기 위한 안내입니다. 교수님 및 평가자를 위한 **[소스코드 제출용 실행 가이드]**입니다.
+로컬 컴퓨터에서 프로젝트를 설정하고 실행하기 위한 안내입니다.
+
+**본 서비스는 Ubuntu-20.04 환경에서 테스트 됐습니다.**
 
 ### 1. 사전 준비 및 폴더 구조 (Prerequisites & Directory Structure)
 
