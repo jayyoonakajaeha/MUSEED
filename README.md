@@ -21,7 +21,7 @@ MUSEED is a web platform that automatically generates personalized playlists by 
 
 ## 📁 프로젝트 구조 (Project Structure)
 
-- **`backend/`**: FastAPI 기반의 RESTful API 서버 코드 (FastAPI backend server code)
+- **`backend/`**: FastAPI 기반의 RESTful API 서버 코드, API 명세서 (FastAPI backend server code and API specification)
 - **`frontend/`**: Next.js 기반의 웹 프론트엔드 코드 (Next.js frontend code)
 - **`research/`**: AI 모델 학습, 평가 및 데이터 분석용 스크립트 (AI research, training, and evaluation scripts)
 - **`models/`**: 학습된 모델 가중치 저장소 (Trained model weights)
